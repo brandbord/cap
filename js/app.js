@@ -1,6 +1,6 @@
 'use strict';
 const at = el => { const r = el.getBoundingClientRect(); return [r.left, r.bottom + 4]; };
-const emptyDb = () => ({ v: 1, domains: DEFAULT_DOMAINS.map(x => ({ ...x })), actions: [], routines: [], activities: [], meta: { sample: false, lastExport: null } });
+const emptyDb = () => ({ v: 1, domains: DEFAULT_DOMAINS.map(x => ({ ...x })), actions: [], routines: [], activities: [], trackCats: [], trackTypes: [], logs: [], meta: { sample: false, lastExport: null } });
 
 /* ---------- thème (préférence propre à l'appareil, hors des données) ---------- */
 const themePref = () => { try { return localStorage.getItem('cap.theme') || 'auto'; } catch (e) { return 'auto'; } };
@@ -28,7 +28,44 @@ const H = {
   delLink: el => mutate(() => { const a = byId(db.actions, el.dataset.id); a.links = (a.links || []).filter(l => l.id !== el.dataset.l); }, 'Lien retiré'),
   themeToggle: () => setTheme(isDark() ? 'light' : 'dark'),
   theme: el => setTheme(el.dataset.v),
-  nav: el => { ui.view = el.dataset.view; render(); },
+  nav: el => { const v = el.dataset.view; ui.view = v; if (TRACK_VIEWS.includes(v)) ui.app = 'track'; else if (v !== 'settings') ui.app = 'cap'; render(); },
+  appSwitch: () => { ui.app = ui.app === 'cap' ? 'track' : 'cap'; ui.view = ui.app === 'track' ? 'tdash' : 'today'; render(); scrollTo(0, 0); },
+  /* ----- Suivis ----- */
+  newLog: () => logModal({}),
+  tlogCat: el => logModal({ catId: el.dataset.id }),
+  logEdit: el => logModal({ logId: el.dataset.id }),
+  qpick: el => { const inp = document.getElementById('qlog'), p = parseQuick(inp.value); inp.value = ttype(el.dataset.id).name + ' ' + p.rest; inp.focus(); qlogPreview(inp.value); },
+  timerStart: el => { if (timerGet()) return toast('Un chrono tourne déjà'); timerSet({ typeId: el.dataset.id, start: Date.now() }); render(); },
+  timerStop: () => timerStop(),
+  timerCancel: () => { timerSet(null); render(); },
+  demoLogs: () => { mutate(() => seedDemoLogs(), 'Séances d\'exemple ajoutées'); },
+  clearDemo: () => mutate(() => { db.logs.filter(l => l.demo).forEach(l => removeLog(l.id)); }, 'Séances d\'exemple supprimées'),
+  jmore: () => { ui.trk.jlimit += 45; render(); },
+  jcat: el => { ui.trk.jcat = el.dataset.v || null; render(); },
+  stype: el => { ui.trk.type = el.dataset.v || null; ui.trk.metric = null; render(); },
+  ecat: el => { ui.evo.cat = el.dataset.v || null; ui.evo.type = null; ui.evo.metric = null; render(); },
+  etype: el => { ui.evo.type = el.dataset.v || null; ui.evo.metric = null; render(); },
+  emetric: el => { ui.evo.metric = el.dataset.v; render(); },
+  egran: el => { ui.evo.gran = el.dataset.v; render(); },
+  eview: el => { ui.evo.view = el.dataset.v; render(); },
+  ecum: el => { ui.evo.cum = el.dataset.v === '1'; ui.evo.view = null; render(); },
+  eweeks: el => { ui.evo.weeks = +el.dataset.v; render(); },
+  scat: el => { ui.trk.cat = el.dataset.v || null; ui.trk.type = null; ui.trk.metric = null; render(); },
+  sweeks: el => { ui.trk.weeks = +el.dataset.v; render(); },
+  stable: el => { ui.trk.table = el.dataset.v === '1'; render(); },
+  tmeasure: el => { const t = ttype(el.dataset.id), k = el.dataset.m; const on = t.measures.includes(k); const set = new Set(t.measures); if (on) set.delete(k); else set.add(k); t.measures = Object.keys(MEASURES).filter(x => set.has(x)); save(); render(); },
+  taddType: el => { db.trackTypes.push({ id: uid(), catId: el.dataset.id, name: 'Nouveau type', keywords: '', measures: ['duration'] }); save(); render(); },
+  taddCat: () => { db.trackCats.push({ id: uid(), name: 'Nouvelle catégorie', color: NEW_CAT_COLORS[db.trackCats.length % NEW_CAT_COLORS.length], goalKind: 'days', goal: 3, routineId: null }); save(); render(); },
+  tdelType: el => {
+    const t = ttype(el.dataset.id), n = logsOf({ typeId: t.id }).length;
+    if (n && !confirm(`Supprimer « ${t.name} » supprimera aussi ses ${n} séance(s). Continuer ?`)) return;
+    mutate(() => { logsOf({ typeId: t.id }).forEach(l => removeLog(l.id)); db.trackTypes.splice(db.trackTypes.indexOf(t), 1); }, 'Type supprimé');
+  },
+  tdelCat: el => {
+    const c = tcat(el.dataset.id), tys = db.trackTypes.filter(t => t.catId === c.id), n = logsOf({ catId: c.id }).length;
+    if ((tys.length || n) && !confirm(`Supprimer « ${c.name} » supprimera ses ${tys.length} type(s) et ${n} séance(s). Continuer ?`)) return;
+    mutate(() => { logsOf({ catId: c.id }).forEach(l => removeLog(l.id)); tys.forEach(t => db.trackTypes.splice(db.trackTypes.indexOf(t), 1)); db.trackCats.splice(db.trackCats.indexOf(c), 1); }, 'Catégorie supprimée');
+  },
   complete: el => completeAction(el.dataset.id),
   open: el => go(el.dataset.k, el.dataset.id),
   pmenu: el => postponeMenu(el.dataset.id, ...at(el)),
@@ -75,9 +112,12 @@ const H = {
   },
   moreMenu: el => {
     const r = el.getBoundingClientRect(), s = fileSync.st.state;
-    showMenu(r.left - 60, r.top - 230, [{ label: 'Activités', icon: 'activity', run: () => { ui.view = 'activities'; render(); } },
-      { label: 'Revue de la semaine', icon: 'review', run: () => { ui.view = 'review'; render(); } },
-      { label: 'Réglages', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }, '-',
+    const first = ui.app === 'track'
+      ? [{ label: 'Réglages de Suivis', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }, { label: 'Retour à Cap', icon: 'swap', run: () => H.appSwitch() }]
+      : [{ label: 'Activités', icon: 'activity', run: () => { ui.view = 'activities'; render(); } },
+        { label: 'Revue de la semaine', icon: 'review', run: () => { ui.view = 'review'; render(); } },
+        { label: 'Réglages', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }, { label: 'Ouvrir Suivis', icon: 'target', run: () => H.appSwitch() }];
+    showMenu(r.left - 60, r.top - (first.length * 38 + 190), [...first, '-',
       { label: isDark() ? 'Thème clair' : 'Thème sombre', icon: isDark() ? 'sun' : 'moon', run: () => H.themeToggle() },
       ...(dbxSync.connected() ? [{ label: dbxSync.st.state === 'ok' ? 'Dropbox synchronisé ✓ (relancer)' : 'Synchroniser Dropbox', icon: 'repeat', run: () => dbxSync.syncNow() }] : []),
       ...(s !== 'ok' && s !== 'unsupported' && !dbxSync.connected() ? [{ label: s === 'needs' ? 'Reconnecter la sauvegarde' : 'Activer la sauvegarde auto', icon: 'download', run: () => H.syncClick() }] : [])]);
@@ -92,7 +132,7 @@ const H = {
     a.download = `cap-copie-${D.today()}.json`; a.click(); toast('Copie téléchargée');
   },
   import: () => document.getElementById('importFile').click(),
-  reset: () => { if (confirm('Tout effacer définitivement ?' + (dbxSync.connected() ? '\n\nDropbox est connecté : cela effacera aussi tes autres appareils.' : '') + '\n(pense à exporter une copie avant)')) { db = emptyDb(); save(); ui.sel = { actions: null, routines: null, activities: null }; render(); } },
+  reset: () => { if (confirm('Tout effacer définitivement ?' + (dbxSync.connected() ? '\n\nDropbox est connecté : cela effacera aussi tes autres appareils.' : '') + '\n(pense à exporter une copie avant)')) { db = emptyDb(); save(); ensureTrackDefaults(); ui.sel = { actions: null, routines: null, activities: null }; render(); } },
 };
 
 document.addEventListener('click', e => {
@@ -123,6 +163,18 @@ function onField(el) {
 }
 document.addEventListener('input', e => {
   const el = e.target;
+  if (el.id === 'qlog') return qlogPreview(el.value);
+  if (el.dataset.search === 'tjournal') { ui.trk.jq = el.value; const box = document.getElementById('jlist'); if (box) box.innerHTML = journalListHtml(); return; }
+  if (el.dataset.tsel) { ui.trk[el.dataset.tsel] = el.value || null; if (el.dataset.tsel === 'type') ui.trk.metric = null; return render(); }
+  if (el.dataset.tc) {
+    const c = tcat(el.dataset.tc), f = el.dataset.f, v = el.value;
+    if (f === 'goalv') { const n = parseFloat(v); c.goal = isNaN(n) ? 0 : c.goalKind === 'minutes' ? Math.round(n * 60) : n; }
+    else if (f === 'goalKind') { c.goalKind = v; c.goal = v === 'minutes' ? 180 : 3; save(); return render(); }
+    else if (f === 'routineId') c.routineId = v || null;
+    else c[f] = v;
+    return save();
+  }
+  if (el.dataset.tt) { ttype(el.dataset.tt)[el.dataset.f] = el.value; return save(); }
   if (el.dataset.search) { ui.f[el.dataset.search].q = el.value; return refreshLight(); }
   if (el.dataset.dom) { byId(db.domains, el.dataset.dom)[el.dataset.f] = el.value; save(); return refreshLight(); }
   if (el.dataset.f && el.dataset.k) onField(el);
@@ -131,7 +183,7 @@ document.addEventListener('change', e => {
   if (e.target.id !== 'importFile' || !e.target.files[0]) return;
   const rd = new FileReader();
   rd.onload = () => {
-    try { const d = JSON.parse(rd.result); if (!Array.isArray(d.actions) || !Array.isArray(d.domains)) throw 0; db = d; save(); render(); toast('Sauvegarde importée'); }
+    try { const d = JSON.parse(rd.result); if (!Array.isArray(d.actions) || !Array.isArray(d.domains)) throw 0; COLLS.forEach(k => { d[k] = d[k] || []; }); db = d; save(); ensureTrackDefaults(); render(); toast('Sauvegarde importée'); }
     catch (err) { toast('Fichier invalide'); }
   };
   rd.readAsText(e.target.files[0]);
@@ -169,6 +221,8 @@ document.addEventListener('contextmenu', e => {
 /* clavier */
 document.addEventListener('keydown', e => {
   const t = e.target, typing = /INPUT|TEXTAREA|SELECT/.test(t.tagName);
+  if (e.key === 'Enter' && t.id === 'qlog') { e.preventDefault(); qlogSubmit(); return; }
+  if (e.key === 'Tab' && !e.shiftKey && t.id === 'qlog') { const p = parseQuick(t.value); if (p.type && norm(p.q) !== norm(p.type.name)) { e.preventDefault(); t.value = p.type.name + ' ' + p.rest; qlogPreview(t.value); } return; }
   if (e.key === 'Enter' && (t.id === 'lk-url' || t.id === 'lk-label')) { document.querySelector('[data-do=addLink]')?.click(); return; }
   if (e.key === 'Enter' && t.id === 'cap' && t.value.trim()) {
     newAction(t.value.trim()); save(); render(); toast('Capturé — à trier ci-dessous'); return;
@@ -187,7 +241,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing || e.ctrlKey || e.metaKey || e.altKey || document.getElementById('modal')) return;
   if ((ui.view === 'today' || ui.view === 'review') && kbdRows() && kbdKey(e)) return;
-  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); newActionModal(); }
+  if (e.key === 'n' || e.key === 'N') { e.preventDefault(); if (ui.app === 'track') logModal({}); else newActionModal(); }
   if (e.key === '/') { const s = document.querySelector('[data-search]'); if (s) { e.preventDefault(); s.focus(); } }
 });
 
@@ -236,13 +290,20 @@ document.addEventListener('mousedown', e => {
 
 applyTheme();
 load();
+ensureTrackDefaults();
 { /* lien direct : index.html#routines ou #actions+sel (ouvre le 1er élément) */
-  if (/~dark/.test(location.hash)) setTheme('dark');
+  if (/~dark/.test(location.hash)) setTheme('dark'); else if (/~light/.test(location.hash)) setTheme('light');
+  if (/~track/.test(location.hash)) ui.app = 'track';
+  if (/~demo/.test(location.hash) && !hasDemo()) { seedDemoLogs(); save(); }
   const [v, sel] = location.hash.slice(1).split('~')[0].split('+');
-  if (TITLES[v]) { ui.view = v; if (sel && ui.sel[v] === null) ui.sel[v] = coll(v)[0]?.id ?? null; }
+  if (TITLES[v]) { ui.view = v; if (TRACK_VIEWS.includes(v)) ui.app = 'track'; if (sel && ui.sel[v] === null && COLL[v]) ui.sel[v] = coll(v)[0]?.id ?? null; }
 }
 render();
 fileSync.init();
 dbxSync.init();
 /* installable + hors ligne (uniquement quand l'appli est servie en https ou localhost) */
-if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => { /* ignore */ });
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').catch(() => { /* ignore */ });
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) toast('Nouvelle version de Cap prête', () => location.reload(), 'Recharger', 20000); });
+}

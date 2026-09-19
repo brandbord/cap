@@ -40,7 +40,7 @@ function dbxBadge() {
 function sidebarHtml() {
   const b = todayBuckets(false), late = db.routines.filter(r => rStats(r).state === 'late').length;
   const todayN = b.inbox.length + b.late.length + b.due.length + late;
-  const N = [
+  const NCAP = [
     ['today', 'sun', 'Aujourd\'hui', todayN ? `<span class="n hot">${todayN}</span>` : ''],
     ['actions', 'list', 'Actions', `<span class="n">${db.actions.filter(isActive).length}</span>`],
     ['routines', 'repeat', 'Routines', late ? `<span class="n hot">${late}</span>` : `<span class="n">${db.routines.length}</span>`],
@@ -48,8 +48,10 @@ function sidebarHtml() {
     ['calendar', 'calendar', 'Calendrier', ''],
     ['review', 'review', 'Revue', reviewDue() ? '<span class="n dotn" title="Ta revue de la semaine est due"></span>' : ''],
   ];
+  const NTRK = [['tdash', 'target', 'Aperçu', ''], ['tjournal', 'journal', 'Journal', `<span class="n">${db.logs.length}</span>`], ['tstats', 'chart', 'Stats', ''], ['tevo', 'trend', 'Évolution', '']];
+  const trk = ui.app === 'track', N = trk ? NTRK : NCAP;
   return `<aside class="side">
-    <div class="brand"><b>${APP_NAME}</b><span>ma vie, en clair</span><button class="iconbtn theme" data-do="themeToggle" title="Thème clair / sombre">${ic(isDark() ? 'sun' : 'moon', 16)}</button></div>
+    <div class="brand"><button class="brandbtn" data-do="appSwitch" title="${trk ? 'Retour à Cap' : 'Ouvrir Suivis'}"><b>${trk ? 'Suivis' : APP_NAME}</b><span>${trk ? 'ce que je fais, vraiment' : 'ma vie, en clair'}</span>${ic('swap', 14)}</button><button class="iconbtn theme" data-do="themeToggle" title="Thème clair / sombre">${ic(isDark() ? 'sun' : 'moon', 16)}</button></div>
     ${N.map(([v, i, l, n]) => `<button class="nav ${ui.view === v ? 'on' : ''} ${v === 'activities' || v === 'review' ? 'm-hide' : ''}" data-do="nav" data-view="${v}">${ic(i, 18)}<span class="nl">${l}</span>${n}</button>`).join('')}
     <div class="grow"></div>
     ${ui.view === 'today' ? '<div class="keys"><b>Clavier</b><span><kbd>↑</kbd><kbd>↓</kbd> naviguer</span><span><kbd>1</kbd>–<kbd>4</kbd> criticité</span><span><kbd>D</kbd> demain · <kbd>S</kbd> +1 sem.</span><span><kbd>M</kbd> +1 mois · <kbd>F</kbd> fait</span><span><kbd>P</kbd> passer une routine</span></div>' : ''}
@@ -135,6 +137,7 @@ function viewToday() {
       <div class="kpi ok"><b>${doneThisWeek()}</b><span>faits sur 7 jours</span></div>
     </div>
     ${reviewDue() ? `<div class="banner review">${ic('review', 16)}C'est le moment de ta revue de la semaine (2 minutes).<button data-do="nav" data-view="review">Lancer la revue</button></div>` : ''}
+    ${trackStripHtml()}
     <div class="minsrow">${minsHtml()}${ui.minutes ? '<span class="muted">Filtre actif : seules les actions avec un effort estimé sont affichées.</span>' : ''}</div>
     <div class="tgrid"><div class="tcol">${left || `<div class="empty card"><b>Rien d'urgent ☀</b>Tout est à jour, profites-en.</div>`}</div><div class="tcol right">${right}</div></div>
   </div>`;

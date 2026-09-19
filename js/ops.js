@@ -121,13 +121,13 @@ function openModal(html) {
 }
 function closeModal() { document.getElementById('modal')?.remove(); }
 let toastTimer;
-function toast(msg, undo) {
+function toast(msg, undo, label = 'Annuler', ms = 6000) {
   document.querySelector('.toast')?.remove();
   const t = document.createElement('div'); t.className = 'toast';
   t.innerHTML = `<span>${esc(msg)}</span>`;
-  if (undo) { const b = document.createElement('button'); b.textContent = 'Annuler'; b.onclick = () => { t.remove(); undo(); }; t.appendChild(b); }
+  if (undo) { const b = document.createElement('button'); b.textContent = label; b.onclick = () => { t.remove(); undo(); }; t.appendChild(b); }
   document.body.appendChild(t);
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), 6000);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), ms);
 }
 
 /* menus de dates rapides */

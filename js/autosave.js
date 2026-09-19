@@ -37,7 +37,7 @@ const fileSync = (() => {
   function schedule() { if (st.state !== 'ok') return; clearTimeout(timer); timer = setTimeout(write, 400); }
 
   function adopt(d) {
-    db = d; normalizeDb(); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+    db = d; normalizeDb(); ensureTrackDefaults(); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
     ui.sel = { actions: null, routines: null, activities: null }; render();
   }
   async function sync() {

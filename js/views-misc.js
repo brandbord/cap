@@ -20,7 +20,8 @@ function dbxSettingsHtml() {
 }
 function viewSettings() {
   return `<div class="body"><div class="scroll" style="max-width:760px">
-    <section class="sec"><h2>Domaines<span class="why">couleur + nom, utilisés partout</span></h2><div class="card">
+    ${ui.app === 'track' ? trackSettingsHtml() : ''}
+    <section class="sec" ${ui.app === 'track' ? 'hidden' : ''}><h2>Domaines<span class="why">couleur + nom, utilisés partout</span></h2><div class="card">
       ${db.domains.map(d => {
         const n = db.actions.filter(a => a.domainId === d.id).length + db.routines.filter(r => r.domainId === d.id).length;
         return `<div class="dom"><input type="color" value="${d.color}" data-dom="${d.id}" data-f="color">
@@ -106,28 +107,33 @@ const TITLES = {
   today: ['Aujourd\'hui', 'ce qui demande ton attention'], actions: ['Actions', 'tout ce que tu as décidé de mener'],
   calendar: ['Calendrier', 'deadlines, followups et routines à venir'], review: ['Revue de la semaine', 'deux minutes pour faire le tri et repartir léger'],
   routines: ['Routines', 'ce qui doit revenir régulièrement'], activities: ['Activités', 'appels, visites, mails, notes, « fait »'], settings: ['Réglages', ''],
+  tdash: ['Cette semaine', ''], tjournal: ['Journal', 'toutes tes séances'], tstats: ['Stats', 'ta régularité, semaine après semaine'], tevo: ['Évolution', 'une statistique à la fois, pour voir si tu progresses'],
 };
 function topHtml() {
   let [t, s] = TITLES[ui.view];
   if (ui.view === 'today') { t = greeting(); s = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); s = s[0].toUpperCase() + s.slice(1); }
-  const btn = { actions: `<button class="btn primary" data-do="newAction">${ic('plus', 16)}<span class="lbl">Nouvelle action</span></button>`,
+  if (ui.view === 'tdash') { const m = D.monday(D.today()), e = D.add(m, 6); s = `du ${D.parse(m).getDate()} au ${D.parse(e).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`; }
+  const logBtn = `<button class="btn primary" data-do="newLog">${ic('plus', 16)}<span class="lbl">Séance</span></button>`;
+  const btn = { tdash: logBtn, tjournal: logBtn, tstats: logBtn, actions: `<button class="btn primary" data-do="newAction">${ic('plus', 16)}<span class="lbl">Nouvelle action</span></button>`,
     routines: `<button class="btn primary" data-do="newRoutine">${ic('plus', 16)}<span class="lbl">Nouvelle routine</span></button>`,
     activities: `<button class="btn primary" data-do="newAct">${ic('plus', 16)}<span class="lbl">Activité</span></button>`,
     calendar: `<button class="btn primary" data-do="newAction">${ic('plus', 16)}<span class="lbl">Nouvelle action</span></button>`,
     today: `<button class="btn primary" data-do="newAction">${ic('plus', 16)}<span class="lbl">Nouvelle action</span> <kbd style="margin-left:4px;background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">N</kbd></button>` }[ui.view] || '';
-  return `<header class="top"><h1>${t}</h1><span class="sub">${s}</span><span class="sp"></span>${btn}</header>`;
+  return `<header class="top"><button class="iconbtn appsw only-m" data-do="appSwitch" title="${ui.app === 'track' ? 'Retour à Cap' : 'Ouvrir Suivis'}">${ic('swap', 18)}</button><h1>${t}</h1><span class="sub">${s}</span><span class="sp"></span>${btn}</header>`;
 }
 function render() {
   const app = document.getElementById('app');
   const sc = app.querySelector('.rows')?.scrollTop, sc2 = app.querySelector('.scroll')?.scrollTop, ds = app.querySelector('#detail')?.scrollTop;
   const focus = document.activeElement?.id;
-  const v = { today: () => `<div class="body">${viewToday()}</div>`, actions: viewActions, routines: viewRoutines, activities: viewActivities, calendar: viewCalendar, review: viewReview, settings: viewSettings }[ui.view]();
+  document.documentElement.dataset.app = ui.app;
+  const v = { tdash: viewTDash, tjournal: viewTJournal, tstats: viewTStats, tevo: viewTEvo, today: () => `<div class="body">${viewToday()}</div>`, actions: viewActions, routines: viewRoutines, activities: viewActivities, calendar: viewCalendar, review: viewReview, settings: viewSettings }[ui.view]();
   app.innerHTML = sidebarHtml() + `<main class="main">${topHtml()}${v}</main>`;
   const r = app.querySelector('.rows'); if (r && sc) r.scrollTop = sc;
   const s2 = app.querySelector('.scroll'); if (s2 && sc2) s2.scrollTop = sc2;
   const d = app.querySelector('#detail'); if (d && ds) d.scrollTop = ds;
   if (focus) document.getElementById(focus)?.focus();
   if (typeof applyFocus === 'function') applyFocus();
+  if (ui.view === 'tdash') qlogPreview(document.getElementById('qlog')?.value || '');
 }
 function refreshSide() { const s = document.querySelector('.side'); if (s) s.outerHTML = sidebarHtml(); }
 /* rafraîchissement léger : liste + tuiles + sidebar, sans toucher au champ en cours de saisie */

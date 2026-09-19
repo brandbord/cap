@@ -7,7 +7,8 @@
      Les suppressions sont tracées (tomb) pour ne pas « ressusciter » un élément supprimé ailleurs.
    - Connexion OAuth PKCE : aucun secret dans le code, seulement la clé d'app (publique) que tu saisis.
    ===================================================================== */
-const COLLS = ['domains', 'actions', 'routines', 'activities'];
+const COLLS = ['domains', 'actions', 'routines', 'activities', 'trackCats', 'trackTypes', 'logs'];
+const CORE_KEYS = ['domains', 'actions', 'routines', 'activities']; // requis pour qu'un fichier soit reconnu comme des données Cap
 let snap = new Map(); // id -> JSON de l'élément (sans u), pour détecter ce qui a changé depuis la dernière sauvegarde
 
 function initSnap() {
@@ -49,12 +50,14 @@ function mergeDb(a, b) {
   }
   const now = Date.now();
   for (const [id, ts] of Object.entries(tomb)) if (!alive.has(id) && now - ts < TOMB_TTL) out.tomb[id] = ts;
+  // clés inconnues (ajoutées par une version plus récente sur un autre appareil) : on les conserve, jamais on ne les perd
+  for (const k of new Set([...Object.keys(b), ...Object.keys(a)])) if (!(k in out) && k !== 'meta' && k !== 'tomb') out[k] = k in a ? a[k] : b[k];
   const ma = a.meta || {}, mb = b.meta || {}, cr = [ma.createdAt, mb.createdAt].filter(Boolean).sort();
   out.meta = { ...ma, ...mb, sample: !!(ma.sample && mb.sample), createdAt: cr[0] || null,
     lastReview: [ma.lastReview, mb.lastReview].filter(Boolean).sort().pop() || null, savedAt: Math.max(ma.savedAt || 0, mb.savedAt || 0) };
   return out;
 }
-const validDb = d => d && COLLS.every(k => Array.isArray(d[k])) && Array.isArray(d.actions);
+const validDb = d => d && CORE_KEYS.every(k => Array.isArray(d[k]));
 
 /* ---------------------------- Dropbox ---------------------------- */
 const dbxSync = (() => {
@@ -129,7 +132,7 @@ const dbxSync = (() => {
   }
   function adopt(target) {
     const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && document.activeElement.closest('#detail');
-    db = target; normalizeDb();
+    db = target; normalizeDb(); ensureTrackDefaults();
     try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
     if (typing) refreshLight(); else render();
   }
