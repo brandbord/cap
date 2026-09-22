@@ -15,6 +15,21 @@
      navigateur, native à Chrome/Edge (donc au téléphone et au PC) : rien à télécharger. Si le navigateur ne
      la propose pas, on retombe simplement sur la saisie manuelle.
    ===================================================================== */
+/* Enseignes françaises courantes, proposées pendant la saisie (liste native du navigateur <datalist>,
+   aucun poids, aucune reconnaissance d'image nécessaire) — bien plus fiable qu'une détection automatique. */
+const FID_BRANDS = [
+  'Carrefour', 'Leclerc', 'Intermarché', 'Auchan', 'Système U', 'Casino', 'Monoprix', 'Franprix', 'Lidl', 'Aldi',
+  'Cora', 'Match', 'Netto', 'Grand Frais', 'Picard', 'Biocoop', 'Naturalia', 'Leader Price', 'Spar', 'Vival',
+  'Leroy Merlin', 'Castorama', 'Bricomarché', 'Bricorama', 'Weldom', 'Jardiland', 'Gamm Vert', 'Botanic', 'Truffaut',
+  'Sephora', 'Nocibé', 'Marionnaud', 'Yves Rocher', 'Etam',
+  'Decathlon', 'Intersport', 'Go Sport',
+  'Fnac', 'Darty', 'Boulanger', 'Cultura', 'Micromania',
+  'Zara', 'H&M', 'Kiabi', 'Célio', 'Camaïeu',
+  'Ikea', 'But', 'Conforama', 'Gifi', 'Maisons du Monde', 'Centrakor', 'Action',
+  'TotalEnergies', 'Esso', 'Avia',
+  'Norauto', 'Feu Vert', 'Speedy',
+  'McDonald\'s', 'Starbucks',
+].sort((a, b) => a.localeCompare(b, 'fr'));
 const FID_FORMATS = {
   code_128: { label: 'Code 128 (le plus courant)', jsb: 'CODE128' },
   ean_13: { label: 'EAN-13', jsb: 'EAN13' },
@@ -177,8 +192,9 @@ function fidShowHtml(card) {
 function fidFolderOptions(sel) {
   return `<option value="">Non rangé</option>${fidFolders().map(f => `<option value="${f.id}" ${sel === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}`;
 }
+const fidBrandsList = () => `<datalist id="fid-brands">${FID_BRANDS.map(b => `<option value="${esc(b)}">`).join('')}</datalist>`;
 const fidNewCardFormHtml = (folderSel) => `<h3>Nouvelle carte</h3>
-    <div class="fld"><label>Magasin / enseigne</label><input class="in" id="fid-store" placeholder="Ex : Carrefour" autocomplete="off"></div>
+    <div class="fld"><label>Magasin / enseigne</label><input class="in" id="fid-store" list="fid-brands" placeholder="Ex : Carrefour" autocomplete="off">${fidBrandsList()}</div>
     <div class="fld"><label>Numéro de carte</label><div class="linkadd"><input class="in" id="fid-num" placeholder="Tape le numéro…" autocomplete="off" style="flex:1 1 200px">
       <button class="btn" id="fid-scan-btn" type="button">${ic('camera', 15)}Scanner</button></div></div>
     <div class="fields" style="padding:0">
