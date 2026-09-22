@@ -750,3 +750,28 @@ svg.chart .cell:hover,svg.chart .cell:focus{stroke:var(--ink);stroke-width:1.5;o
 .hist-act .favon{color:var(--warn)}
 .seg.sm{padding:2px}
 .seg.sm button{padding:4px 10px;font-size:12px}
+
+/* ---- v1.17 : Cartes de fidélité ---- */
+.fchips{margin:2px 0 14px}
+.fidrow{gap:10px}
+.fidopen{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-align:left;padding:2px 0}
+.fidico{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none}
+.fidmeta{display:flex;flex-direction:column;gap:1px;min-width:0}
+.fidmeta b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fidmeta .muted{font-size:12.5px}
+/* plein écran : toujours clair, noir sur blanc, quel que soit le thème — un scanner a besoin de contraste */
+.fidshow{background:#fff;color:#1a1a1a;border-radius:var(--radius);padding:36px 24px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:var(--shadow);position:relative;min-height:60vh;justify-content:center}
+.fidshow h2{font:600 26px var(--serif);margin:0 0 18px;color:#1a1a1a}
+.fidclose{position:absolute;top:14px;right:14px;color:#3a352f}
+.fidcode{display:flex;justify-content:center;min-height:120px;align-items:center}
+.fidcode svg{max-width:100%}
+.fidqr{width:200px;height:200px;image-rendering:pixelated}
+.fidnum{font:600 20px var(--sans);letter-spacing:.06em;color:#1a1a1a;margin-top:10px;font-variant-numeric:tabular-nums}
+.fidnum-only{font:600 32px var(--sans);letter-spacing:.04em;color:#1a1a1a;padding:20px 0}
+.fidctl{display:flex;align-items:center;gap:10px;margin-top:26px;flex-wrap:wrap;justify-content:center}
+.fidctl .in.sm{padding:6px 10px;font-size:13px;border-radius:8px;border:1px solid #ddd}
+/* scan caméra */
+.fidscan{position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3}
+.fidscan video{width:100%;height:100%;object-fit:cover;display:block}
+.fidscan-frame{position:absolute;inset:15% 8%;border:2.5px dashed rgba(255,255,255,.85);border-radius:8px;pointer-events:none}
+@media (max-width:760px){.fidshow{padding:26px 16px;min-height:70vh}.fidshow h2{font-size:22px}.fidnum-only{font-size:26px}}

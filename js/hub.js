@@ -13,10 +13,12 @@
    ===================================================================== */
 const PROFILES = [{ id: 'brandon', name: 'Brandon', color: '#c4552f' }, { id: 'julya', name: 'Julya', color: '#5f7fa8' }];
 const APPS = [
-  { id: 'cap', name: 'Cap', tag: 'ma vie, en clair', icon: 'target', ready: true },
+  { id: 'weekend', name: 'Weekend', tag: 'corvées, trucs cool…', icon: 'clipboard', ready: true },
   { id: 'courses', name: 'Courses', tag: 'la liste de courses', icon: 'cart', ready: true },
+  { id: 'cartes', name: 'Cartes', tag: 'cartes de fidélité', icon: 'cardId', ready: true },
   { id: 'listes', name: 'Nos listes', tag: 'destinations, musique…', icon: 'star', ready: true },
   { id: 'mois', name: 'Mois', tag: 'fruits, légumes & jardin de saison', icon: 'calendar', ready: true },
+  { id: 'cap', name: 'Cap', tag: 'ma vie, en clair', icon: 'target', ready: true },
 ];
 const HUB_KEY = 'cap.hub', SESSION_KEY = 'cap.session';
 
@@ -29,6 +31,9 @@ Object.assign(ICONS, {
   backspace: '<path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"/><path d="m18 9-6 6M12 9l6 6"/>',
   mailbox: '<path d="M4 20V11a6 6 0 0 1 12 0v9H4Z"/><path d="M7.5 20v1.6M12.5 20v1.6"/>',
   mailboxUp: '<path d="M4 20V11a6 6 0 0 1 12 0v9H4Z"/><path d="M7.5 20v1.6M12.5 20v1.6"/><path d="M17.4 20V8.5"/><path d="m17.4 8.5 4 1.7-4 1.7Z"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M8.5 10.5h7M8.5 14h7M8.5 17.5h4.5"/>',
+  cardId: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 9h20"/><path d="M6 14h4"/>',
+  camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/>',
 });
 
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
@@ -88,6 +93,18 @@ const courrierSpec = () => ({ // la boîte aux lettres : deux cases fixes (une p
   id: 'courrier', path: '/courrier/commun.json', get: () => courrier.data, valid: d => d && Array.isArray(d.letters), merge: (a, b) => mergeDb(a, b, ['letters', 'history']),
   untouched: () => false, adopt: d => courrierAdopt(d),
 });
+const weekendSpec = () => ({ // le programme du week-end : corvées / trucs cool, communs (un seul fichier, deux collections)
+  id: 'weekend', path: '/weekend/commun.json', get: () => weekend.data, valid: d => d && WTYPES.every(t => Array.isArray(d[t.id])), merge: (a, b) => mergeDb(a, b, WTYPES.map(t => t.id)),
+  untouched: () => false, adopt: d => weekendAdopt(d),
+});
+const cartesSpec = () => ({ // dossiers + cartes communes
+  id: 'cartes', path: '/cartes/commun.json', get: () => fidC.data, valid: d => d && Array.isArray(d.cards) && Array.isArray(d.folders), merge: (a, b) => mergeDb(a, b, ['folders', 'cards']),
+  untouched: () => false, adopt: d => fidAdoptC(d),
+});
+const cartesPersoSpec = p => ({ // mes cartes privatisées uniquement : ne transitent jamais par le fichier commun
+  id: 'cartesPerso', path: `/cartes/${p}.json`, get: () => fidP.data, valid: d => d && Array.isArray(d.cards), merge: (a, b) => mergeDb(a, b, ['cards']),
+  untouched: () => false, adopt: d => fidAdoptP(d),
+});
 // Mois (fruits/légumes de saison, jardin, lune) n'a pas de fichier : contenu de référence, pareil pour tous, sans synchro.
 
 /* ---------- messages d'accueil de Julya (un tirage à chaque ouverture) ----------
@@ -137,7 +154,7 @@ function hubEnter(p) {
   if (p === 'brandon' && !localStorage.getItem(KEY)) { // les données d'avant les profils deviennent celles de Brandon (l'ancienne clé reste, par sécurité)
     try { const old = localStorage.getItem('cap.v1'); if (old) localStorage.setItem(KEY, old); } catch (e) { /* ignore */ }
   }
-  load(); ensureTrackDefaults(); coursesLoad(); listesLoad(); courrierLoad();
+  load(); ensureTrackDefaults(); coursesLoad(); listesLoad(); courrierLoad(); weekendLoad(); fidLoad();
   hub.loveMsg = p === 'julya' ? pickLoveMessage() : null; // un seul tirage pour toute la session : ne change pas en changeant d'écran
   const h = location.hash;
   hub.screen = 'home';
@@ -146,7 +163,7 @@ function hubEnter(p) {
   const [v, sel] = h.slice(1).split('~')[0].split('+'); // lien direct : #routines ou #actions+sel
   if (TITLES[v]) { ui.view = v; hub.screen = 'cap'; if (TRACK_VIEWS.includes(v)) ui.app = 'track'; if (sel && ui.sel[v] === null && COLL[v]) ui.sel[v] = coll(v)[0]?.id ?? null; }
   if (hub.afterAuth) { hub.afterAuth = false; hub.screen = 'cap'; ui.view = 'settings'; }
-  dbxSync.setSpecs([hubSpec(), capSpec(p), communSpec(), coursesSpec(), listesSpec(), courrierSpec()]);
+  dbxSync.setSpecs([hubSpec(), capSpec(p), communSpec(), coursesSpec(), listesSpec(), courrierSpec(), weekendSpec(), cartesSpec(), cartesPersoSpec(p)]);
   render();
   fileSync.init();
   dbxSync.syncNow();
@@ -181,8 +198,10 @@ async function hubSubmit() {
 }
 function hubOpen(app) {
   if (!APPS.find(a => a.id === app && a.ready)) return;
+  if (app === 'cartes') fidUi.show = fidUi.add = fidUi.scan = null; // toujours repartir de la liste, pas de la dernière carte ouverte
   hub.screen = app; render(); scrollTo(0, 0);
-  if (app === 'courses' || app === 'listes') dbxSync.syncNow([app]); // listes partagées : on les met à jour à l'ouverture
+  if (['courses', 'listes', 'weekend'].includes(app)) dbxSync.syncNow([app]); // listes partagées : on les met à jour à l'ouverture
+  if (app === 'cartes') dbxSync.syncNow(['cartes', 'cartesPerso']);
 }
 function hubHome() { closeModal(); closeMenu(); hub.screen = 'home'; render(); }
 function hubSwitch() { lsSet(SESSION_KEY, null); location.href = location.pathname; }
@@ -192,6 +211,8 @@ function hubKeydown(e) {
   if (hub.screen === 'listes') return listesKey(e);
   if (hub.screen === 'mois') return moisKey(e);
   if (hub.screen === 'courrier') return mailKey(e);
+  if (hub.screen === 'weekend') return weekendKey(e);
+  if (hub.screen === 'cartes') return cartesKey(e);
   if (hub.screen !== 'login' || !hub.pick || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^\d$/.test(e.key)) hubDigit(e.key);
   else if (e.key === 'Backspace') hubDel();
@@ -233,7 +254,7 @@ function homeHtml() {
   const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const love = hub.profile === 'julya' && hub.loveMsg;
   const tile = a => `<button class="atile ${a.ready ? '' : 'later'}" ${a.ready ? `data-do="hubOpen" data-app="${a.id}"` : 'disabled'}>
-    <span class="tico">${ic(a.icon, 28)}</span><b>${esc(a.name)}</b><span class="ttag">${esc(a.tag)}</span>${a.ready ? { cap: capTileBadge, courses: coursesTileBadge, listes: listesTileBadge, mois: moisTileBadge }[a.id]?.() ?? '' : '<span class="tbadge">Bientôt</span>'}</button>`;
+    <span class="tico">${ic(a.icon, 28)}</span><b>${esc(a.name)}</b><span class="ttag">${esc(a.tag)}</span>${a.ready ? { cap: capTileBadge, courses: coursesTileBadge, listes: listesTileBadge, mois: moisTileBadge, weekend: weekendTileBadge, cartes: fidTileBadge }[a.id]?.() ?? '' : '<span class="tbadge">Bientôt</span>'}</button>`;
   return `<div class="hubwrap"><div class="hh">
     <header class="hubtop"><div><h1 class="${love ? `love${love.special ? ' special' : ''}` : ''}">${love ? esc(love.text) : `${hello}, ${esc(p.name)}`}</h1><span class="sub">${esc(date[0].toUpperCase() + date.slice(1))}</span></div><span class="sp"></span>
       ${mailboxBtn()}<button class="iconbtn" data-do="themeToggle" title="Thème clair / sombre">${ic(isDark() ? 'sun' : 'moon', 18)}</button>
@@ -244,7 +265,8 @@ function homeHtml() {
 function hubRender() {
   const app = document.getElementById('app');
   app.className = 'hubmode'; document.documentElement.dataset.app = 'cap';
-  app.innerHTML = { login: loginHtml, home: homeHtml, courses: coursesHtml, listes: listesHtml, mois: moisHtml, courrier: courrierHtml }[hub.screen]?.() ?? '';
+  app.innerHTML = { login: loginHtml, home: homeHtml, courses: coursesHtml, listes: listesHtml, mois: moisHtml, courrier: courrierHtml, weekend: weekendHtml, cartes: cartesHtml }[hub.screen]?.() ?? '';
+  if (hub.screen === 'cartes') cartesAfterRender();
 }
 function profileSettingsHtml() {
   const p = profileOf(hub.profile);

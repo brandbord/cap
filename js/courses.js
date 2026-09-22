@@ -148,6 +148,7 @@ function cListHtml() {
 function coursesHtml() {
   return `<div class="hubwrap cw"><div class="cwrap">
     <header class="chead"><button class="iconbtn" data-do="hubHome" title="Retour aux applications">${ic('left', 20)}</button><h1>Courses</h1><span class="sub" id="csub">${cSub()}</span><span class="sp"></span>
+      <button class="iconbtn" data-do="cCards" title="Cartes de fidélité du dossier Courses">${ic('cardId', 19)}</button>
       <button class="btn" data-do="cSort" title="Range la liste dans l'ordre du magasin, d'après les logos (les articles sans logo vont à la fin)">${ic('list', 15)}<span class="lbl">Ranger par rayon</span></button>
       <button class="btn" data-do="cClear" id="cclear" title="Retire de la liste les articles cochés"${cDone() ? '' : ' disabled'}>${ic('trash', 15)}<span class="lbl">Retirer les cochés</span></button></header>
     <div class="ci cadd"><span class="cplus">${ic('plus', 18)}</span>
@@ -197,6 +198,7 @@ function cAddNow() {
 }
 const coursesH = {
   cAdd: () => cAddNow(),
+  cCards: () => openCartesFolder('courses'),
   cToggle: el => { const it = cItem(el.dataset.id); if (!it) return; it.done = !it.done; if (it.done) it.doneAt = D.today(); else delete it.doneAt; coursesSave(); coursesRefresh(); },
   cCat: el => cSetCat(el.dataset.id, el.dataset.cat),
   cCatMenu: el => {

@@ -168,3 +168,10 @@ function askDate(title, cb) {
     <div class="acts"><button class="btn" data-do="closeModal">Annuler</button><button class="btn primary" id="askok">Valider</button></div>`);
   m.querySelector('#askok').onclick = () => { const v = m.querySelector('#askd').value; if (v) { closeModal(); cb(v); } };
 }
+function askText(title, value, cb) {
+  const m = openModal(`<h3>${esc(title)}</h3><div class="fld"><input class="in" id="askt" value="${esc(value || '')}" autocomplete="off"></div>
+    <div class="acts"><button class="btn" data-do="closeModal">Annuler</button><button class="btn primary" id="asktok">Valider</button></div>`);
+  const ok = () => { const v = m.querySelector('#askt').value; closeModal(); cb(v); };
+  m.querySelector('#asktok').onclick = ok;
+  m.querySelector('#askt').addEventListener('keydown', e => { if (e.key === 'Enter') ok(); });
+}
