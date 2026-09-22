@@ -30,7 +30,7 @@ function newAction(title, o = {}) {
   db.actions.push(a); return a;
 }
 function newActivity(o) {
-  const x = { id: uid(), type: 'note', date: D.today(), text: '', actionId: null, routineId: null, ...o };
+  const x = { id: uid(), type: 'note', date: D.today(), text: '', actionId: null, routineId: null, by: hub.profile, ...o };
   db.activities.push(x); return x;
 }
 
@@ -73,6 +73,19 @@ function triage(id, patch) {
   const a = byId(db.actions, id); Object.assign(a, patch);
   if (a.crit !== null && a.triFu) a.inbox = false;
   save(); render();
+}
+
+/* ---------- perso ⇄ commun : un clic ----------
+   L'élément (avec ses activités) change de fichier ; l'autre personne le reçoit ou le perd à sa prochaine synchro. */
+const otherProfile = () => PROFILES.find(p => p.id !== hub.profile);
+const sharedTag = x => x.shared ? `<span class="tag shared" title="Commun : visible par ${esc(PROFILES.map(p => p.name).join(' et '))}${x.sharedBy ? ' · partagé par ' + esc(profileOf(x.sharedBy)?.name || x.sharedBy) : ''}">${ic('users', 11)}Commun</span>` : '';
+const scopeSeg = (k, x) => `<div class="seg scope" title="Un clic pour basculer entre perso (toi seul) et commun (${esc(otherProfile().name)} le voit aussi)">${['Perso', 'Commun'].map((l, i) =>
+  `<button class="${!!x.shared === !!i ? 'on' : ''}" data-do="share" data-k="${k}" data-id="${x.id}" data-to="${i}">${i ? ic('users', 13) : ''}${l}</button>`).join('')}</div>`;
+function toggleShared(kind, id) {
+  const o = byId(coll(kind), id); if (!o) return;
+  const on = !o.shared;
+  mutate(() => { if (on) { o.shared = true; o.sharedBy = hub.profile; } else { delete o.shared; delete o.sharedBy; } },
+    on ? `Passée en commun : ${otherProfile().name} la voit aussi${hideShared() ? ' (commun masqué : elle disparaît de ta vue)' : ''}` : 'Repassée en perso : toi seul la vois');
 }
 
 /* ---------- navigation ---------- */

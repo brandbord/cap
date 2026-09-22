@@ -8,7 +8,7 @@ function dbxSettingsHtml() {
     const label = { ok: `Synchronisé ${st.last ? ago(st.last) : ''}`, syncing: 'Synchronisation en cours…', offline: 'Hors ligne : la synchro reprendra dès le retour du réseau.',
       needs: 'La connexion a expiré : reconnecte-toi ci-dessous.', error: `Erreur : ${esc(st.err || 'inconnue')}`, none: 'En attente' }[st.state];
     return `<section class="sec">${head}<div class="card" style="padding:16px"><p style="margin:0 0 12px"><b>${label}</b></p>
-      <p class="hint" style="margin:0 0 12px">Fichier : <code>Applications/Cap/cap-donnees.json</code> dans ton Dropbox. La synchro se fait à l'ouverture, après chaque modification et au retour dans l'appli.</p>
+      <p class="hint" style="margin:0 0 12px">Fichier : <code>Applications/Cap/cap/${esc(hub.profile)}.json</code> dans ton Dropbox (un fichier par profil). La synchro se fait à l'ouverture, après chaque modification et au retour dans l'appli.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-do="dbxNow">Synchroniser maintenant</button>
       ${st.state === 'needs' ? '<button class="btn primary" data-do="dbxConnect">Reconnecter Dropbox</button>' : ''}
       <button class="btn danger" data-do="dbxOut">Se déconnecter</button></div></div></section>`;
@@ -20,6 +20,7 @@ function dbxSettingsHtml() {
 }
 function viewSettings() {
   return `<div class="body"><div class="scroll" style="max-width:760px">
+    ${profileSettingsHtml()}
     ${ui.app === 'track' ? trackSettingsHtml() : ''}
     <section class="sec" ${ui.app === 'track' ? 'hidden' : ''}><h2>Domaines<span class="why">couleur + nom, utilisés partout</span></h2><div class="card">
       ${db.domains.map(d => {
@@ -53,6 +54,7 @@ function newActionModal(o = {}) {
     <div class="fld"><label>Domaine</label><div class="mini" id="na-d">${db.domains.map(d => `<button class="dbtn ${o.domainId === d.id ? 'on' : ''}" style="--c:${d.color}" title="${esc(d.name)}" data-v="${d.id}"></button>`).join('')}</div></div>
     <div class="fld"><label>Criticité (vide = à trier plus tard)</label><div class="cpick" id="na-c">${CRITS.map(c => `<button class="c${c}" data-v="${c}">${c}%</button>`).join('')}</div></div>
     <div class="fields" style="padding:0"><div class="fld"><label>Deadline</label><input type="date" id="na-dl" value="${o.deadline || ''}"></div><div class="fld"><label>Followup</label><input type="date" id="na-fu" value="${o.followup || ''}"></div></div>
+    <div class="fld"><label class="chk"><input type="checkbox" id="na-sh"> ${ic('users', 14)} Commun : ${esc(otherProfile().name)} la voit aussi</label></div>
     <div class="acts"><button class="btn" data-do="closeModal">Annuler</button><button class="btn primary" id="na-ok">Créer</button></div>`);
   const pick = (sel, cls) => m.querySelector(sel).addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
     const on = b.classList.contains('on'); m.querySelectorAll(sel + ' button').forEach(x => x.classList.remove('on')); if (!on) b.classList.add('on'); });
@@ -61,7 +63,7 @@ function newActionModal(o = {}) {
     const t = m.querySelector('#na-t').value.trim(); if (!t) return m.querySelector('#na-t').focus();
     const c = m.querySelector('#na-c .on')?.dataset.v, d = m.querySelector('#na-d .on')?.dataset.v;
     const fu = m.querySelector('#na-fu').value || null;
-    closeModal(); const a = newAction(t, { domainId: d || null, crit: c ? +c : null, deadline: m.querySelector('#na-dl').value || null, followup: fu, triFu: !!fu, routineId: o.routineId || null });
+    closeModal(); const a = newAction(t, { domainId: d || null, crit: c ? +c : null, deadline: m.querySelector('#na-dl').value || null, followup: fu, triFu: !!fu, routineId: o.routineId || null, ...(m.querySelector('#na-sh').checked ? { shared: true, sharedBy: hub.profile } : {}) });
     save(); go('actions', a.id);
   };
   m.querySelector('#na-ok').onclick = ok;
@@ -71,11 +73,13 @@ function newRoutineModal() {
   const m = openModal(`<h3>Nouvelle routine</h3>
     <div class="fld"><label>Quoi ?</label><input class="in" id="nr-t" placeholder="Ex : arroser les plantes" autocomplete="off"></div>
     <div class="fld"><label>Domaine</label><select class="in" id="nr-d">${db.domains.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></div>
+    <div class="fld"><label class="chk"><input type="checkbox" id="nr-sh"> ${ic('users', 14)} Commun : ${esc(otherProfile().name)} la voit aussi</label></div>
     <p class="hint">Tu règles la fréquence ensuite, dans la fiche (1× par semaine par défaut).</p>
     <div class="acts"><button class="btn" data-do="closeModal">Annuler</button><button class="btn primary" id="nr-ok">Créer</button></div>`);
   const ok = () => {
     const t = m.querySelector('#nr-t').value.trim(); if (!t) return;
     const r = { id: uid(), title: t, domainId: m.querySelector('#nr-d').value, mode: 'freq', n: 1, per: 'semaine', unit: 'mois', months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], effort: null, notes: '', paused: false, createdAt: D.today() };
+    if (m.querySelector('#nr-sh').checked) { r.shared = true; r.sharedBy = hub.profile; }
     db.routines.push(r); save(); closeModal(); go('routines', r.id);
   };
   m.querySelector('#nr-ok').onclick = ok;
@@ -122,7 +126,8 @@ function topHtml() {
   return `<header class="top"><button class="iconbtn appsw only-m" data-do="appSwitch" title="${ui.app === 'track' ? 'Retour à Cap' : 'Ouvrir Suivis'}">${ic('swap', 18)}</button><h1>${t}</h1><span class="sub">${s}</span><span class="sp"></span>${btn}</header>`;
 }
 function render() {
-  const app = document.getElementById('app');
+  if (hub.screen !== 'cap') return hubRender(); // connexion / accueil des applis (hub.js)
+  const app = document.getElementById('app'); app.className = '';
   const sc = app.querySelector('.rows')?.scrollTop, sc2 = app.querySelector('.scroll')?.scrollTop, ds = app.querySelector('#detail')?.scrollTop;
   const focus = document.activeElement?.id;
   document.documentElement.dataset.app = ui.app;
@@ -138,6 +143,7 @@ function render() {
 function refreshSide() { const s = document.querySelector('.side'); if (s) s.outerHTML = sidebarHtml(); }
 /* rafraîchissement léger : liste + tuiles + sidebar, sans toucher au champ en cours de saisie */
 function refreshLight() {
+  if (hub.screen !== 'cap') return;
   const app = document.getElementById('app'), kind = ui.view;
   const rows = app.querySelector('#rows'); if (rows && ROWS[kind]) { const sc = rows.scrollTop; rows.innerHTML = ROWS[kind](); rows.scrollTop = sc; }
   const live = app.querySelector('#live'), r = ui.sel.routines && byId(db.routines, ui.sel.routines);

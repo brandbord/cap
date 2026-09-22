@@ -34,7 +34,7 @@ function actionRows() {
   return head + rows.map(a => `<div class="row g-actions ${ui.sel.actions === a.id ? 'sel' : ''} ${isActive(a) ? '' : 'faded'}" data-row data-k="actions" data-id="${a.id}">
     <button class="check" data-do="complete" data-id="${a.id}" title="Terminer" style="${isActive(a) ? '' : 'visibility:hidden'}">${ic('check', 13)}</button>
     ${critPill(a.crit)}
-    <div class="ttl">${domDot(a.domainId)}<span class="t">${esc(a.title)}</span>${a.inbox ? '<span class="tag">à trier</span>' : ''}${(a.links || []).length ? `<span class="muted" title="${a.links.length} lien(s) Drive">${ic('link', 13)}</span>` : ''}</div>
+    <div class="ttl">${domDot(a.domainId)}<span class="t">${esc(a.title)}</span>${sharedTag(a)}${a.inbox ? '<span class="tag">à trier</span>' : ''}${(a.links || []).length ? `<span class="muted" title="${a.links.length} lien(s) Drive">${ic('link', 13)}</span>` : ''}</div>
     ${statusChip(a.status)}${dateCell(a.deadline, 'deadline')}${dateCell(a.followup, 'followup')}
     <span class="muted">${a.effort ? effortLabel(a.effort) : '—'}</span>${ppBadge(a) || '<span></span>'}</div>`).join('');
 }
@@ -51,6 +51,7 @@ function actionDetail(a) {
   const tab = ui.tab.actions, acts = db.activities.filter(x => x.actionId === a.id).sort((x, y) => y.date.localeCompare(x.date));
   const F = f => `data-k="actions" data-id="${a.id}" data-f="${f}"`;
   return `<div class="dhead"><input class="tin" ${F('title')} value="${esc(a.title)}" placeholder="Titre de l'action">
+      ${scopeSeg('actions', a)}
       <button class="btn sm" data-do="pmenu" data-id="${a.id}">${ic('skip', 14)}Reporter</button>
       <button class="btn sm" data-do="wmenu" data-id="${a.id}">${ic('pause', 14)}En attente</button>
       <button class="iconbtn" data-do="del" data-k="actions" data-id="${a.id}" title="Supprimer">${ic('trash', 16)}</button>
@@ -89,7 +90,7 @@ function linksHtml(a) {
 function actList(acts) {
   if (!acts.length) return '<div class="muted" style="padding:10px 0">Aucune activité pour l\'instant. Clic droit sur une action pour en ajouter.</div>';
   return acts.map(x => `<div class="arow" data-do="open" data-k="activities" data-id="${x.id}" style="cursor:pointer"><span class="muted">${fmtShort(x.date)}</span>
-    <span class="ty">${ic(TYPES[x.type].icon, 14)}${TYPES[x.type].label}</span><span>${esc(x.text) || '<span class="muted">—</span>'}</span>
+    <span class="ty">${ic(TYPES[x.type].icon, 14)}${TYPES[x.type].label}</span><span>${esc(x.text) || '<span class="muted">—</span>'}${x.by && x.by !== hub.profile ? ` <small class="muted">· ${esc(profileOf(x.by)?.name || x.by)}</small>` : ''}</span>
     <button class="iconbtn" data-do="del" data-k="activities" data-id="${x.id}" title="Supprimer">${ic('trash', 14)}</button></div>`).join('');
 }
 
@@ -116,7 +117,7 @@ function routineRows() {
   const head = hdHtml('routines', 'g-routines', [['title', 'Routine'], ['', 'Règle'], ['last', 'Dernier fait'], ['urgency', 'Jours sans action'], ['', 'Période'], ['', '12 dernières périodes'], ['', '']]);
   if (!rows.length) return head + emptyRows('Aucune routine', 'Crée ta première routine avec le bouton en haut à droite.');
   return head + rows.map(({ r, s }) => `<div class="row g-routines ${ui.sel.routines === r.id ? 'sel' : ''}" data-row data-k="routines" data-id="${r.id}">
-    <div class="ttl">${domDot(r.domainId)}<span class="t">${esc(r.title)}</span>${serBadge(r, s.dones)}${s.dormant ? `<span class="dormant-tag">${r.paused ? 'en pause' : 'hors saison'}</span>` : s.state === 'snoozed' ? `<span class="dormant-tag">passée · revient ${rel(r.snoozeUntil)}</span>` : ''}</div>
+    <div class="ttl">${domDot(r.domainId)}<span class="t">${esc(r.title)}</span>${sharedTag(r)}${serBadge(r, s.dones)}${s.dormant ? `<span class="dormant-tag">${r.paused ? 'en pause' : 'hors saison'}</span>` : s.state === 'snoozed' ? `<span class="dormant-tag">passée · revient ${rel(r.snoozeUntil)}</span>` : ''}</div>
     <span>${ruleText(r)}${seasonText(r) ? `<br><small class="muted">${seasonText(r)}</small>` : ''}</span>
     <span>${s.last ? `${fmtShort(s.last)}<br><small class="muted">${rel(s.last)}</small>` : '<span class="muted">jamais</span>'}</span>
     <div class="gap ${s.state}"><b>${s.since} j</b><small>max ${s.gap} j</small><div class="bar"><i style="--p:${Math.min(100, Math.round(100 * s.since / s.gap))}%"></i></div></div>
@@ -147,6 +148,7 @@ function routineDetail(r) {
     ? `<input class="in" type="number" min="1" ${F('n')} value="${r.n}"> fois par <select ${F('per')}>${[['semaine', 'semaine'], ['mois', 'mois'], ['an', 'an']].map(([v, l]) => `<option value="${v}" ${r.per === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`
     : `tous les <input class="in" type="number" min="1" ${F('n')} value="${r.n}"><select ${F('unit')}>${[['jour', 'jours'], ['semaine', 'semaines'], ['mois', 'mois'], ['an', 'ans']].map(([v, l]) => `<option value="${v}" ${r.unit === v ? 'selected' : ''}>${l}</option>`).join('')}</select> après le dernier fait`;
   return `<div class="dhead"><input class="tin" ${F('title')} value="${esc(r.title)}">
+      ${scopeSeg('routines', r)}
       <button class="btn sm" data-do="rskip" data-id="${r.id}" title="Elle disparaît quelques jours, sans casser ta série">${ic('skip', 14)}Passer cette fois</button>
       <button class="btn sm" data-do="newLinked" data-id="${r.id}">${ic('link', 14)}Action liée</button>
       <button class="btn sm" data-do="rdone" data-id="${r.id}">${ic('check', 14)}Fait aujourd'hui</button>

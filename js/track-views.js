@@ -9,8 +9,9 @@ const hasDemo = () => db.logs.some(l => l.demo);
 const dayLabel = d => { const n = D.diff(D.today(), d); return n === 0 ? "Aujourd'hui" : n === 1 ? 'Hier' : fmtShort(d); };
 
 /* ---------- chrono (propre à l'appareil) ---------- */
-const timerGet = () => { try { return JSON.parse(localStorage.getItem('cap.timer')); } catch (e) { return null; } };
-const timerSet = v => { try { if (v) localStorage.setItem('cap.timer', JSON.stringify(v)); else localStorage.removeItem('cap.timer'); } catch (e) { /* ignore */ } };
+const timerKey = () => 'cap.timer.' + (hub.profile || '');
+const timerGet = () => { try { return JSON.parse(localStorage.getItem(timerKey())); } catch (e) { return null; } };
+const timerSet = v => { try { if (v) localStorage.setItem(timerKey(), JSON.stringify(v)); else localStorage.removeItem(timerKey()); } catch (e) { /* ignore */ } };
 const clock = ms => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 setInterval(() => { const t = timerGet(), el = document.querySelector('.timerv'); if (t && el) el.textContent = clock(Date.now() - t.start); }, 1000);
 function timerStop() {

@@ -55,6 +55,8 @@ function sidebarHtml() {
     ${N.map(([v, i, l, n]) => `<button class="nav ${ui.view === v ? 'on' : ''} ${v === 'activities' || v === 'review' ? 'm-hide' : ''}" data-do="nav" data-view="${v}">${ic(i, 18)}<span class="nl">${l}</span>${n}</button>`).join('')}
     <div class="grow"></div>
     ${ui.view === 'today' ? '<div class="keys"><b>Clavier</b><span><kbd>↑</kbd><kbd>↓</kbd> naviguer</span><span><kbd>1</kbd>–<kbd>4</kbd> criticité</span><span><kbd>D</kbd> demain · <kbd>S</kbd> +1 sem.</span><span><kbd>M</kbd> +1 mois · <kbd>F</kbd> fait</span><span><kbd>P</kbd> passer une routine</span></div>' : ''}
+    <button class="nav m-hide" data-do="hideShared" data-v="${hideShared() ? 0 : 1}" title="Masquer / afficher les actions et routines communes">${ic('users', 18)}<span class="nl">Commun : ${hideShared() ? 'masqué' : 'visible'}</span></button>
+    <button class="nav m-hide" data-do="hubHome" title="Retour à l'accueil des applications">${ic('grid', 18)}<span class="nl">Applications</span></button>
     ${dbxBadge()}${dbxSync.connected() && fileSync.st.state !== 'ok' ? '' : syncBadge()}
     <button class="nav only-m ${['activities', 'review', 'settings'].includes(ui.view) ? 'on' : ''}" data-do="moreMenu">${ic('more', 18)}<span class="nl">Plus</span></button>
     <button class="nav m-hide ${ui.view === 'settings' ? 'on' : ''}" data-do="nav" data-view="settings">${ic('gear', 18)}<span class="nl">Réglages</span></button>
@@ -64,6 +66,7 @@ function sidebarHtml() {
 /* ---------- Aujourd'hui ---------- */
 function todoRow(a) {
   const meta = [`${domDot(a.domainId)} ${esc(dom(a.domainId)?.name || 'Sans domaine')}`];
+  if (a.shared) meta.push(sharedTag(a));
   if (a.deadline) meta.push(`Deadline ${dateCell(a.deadline, 'deadline')}`);
   if (a.followup && (a.followup <= D.today() || a.status === 'waiting')) meta.push(`${a.status === 'waiting' ? 'Relance' : 'Followup'} ${dateCell(a.followup, 'followup')}`);
   if (a.status === 'waiting') meta.push(statusChip('waiting'));
@@ -92,7 +95,7 @@ function routineTodayRow({ r, s }) {
   const cls = s.state === 'late' ? 'late' : 'soon';
   return `<div class="trow" data-row data-k="routines" data-id="${r.id}">
     <button class="check" data-do="rdone" data-id="${r.id}" title="Fait aujourd'hui">${ic('check', 13)}</button>
-    <div><div class="tt" data-do="open" data-k="routines" data-id="${r.id}">${esc(r.title)} ${serBadge(r, s.dones)}</div>
+    <div><div class="tt" data-do="open" data-k="routines" data-id="${r.id}">${esc(r.title)} ${sharedTag(r)} ${serBadge(r, s.dones)}</div>
       <div class="tmeta">${domDot(r.domainId)} ${esc(dom(r.domainId)?.name || '')}<span>·</span>${ruleText(r)}<span>·</span>dernier : ${s.last ? rel(s.last) : 'jamais'}</div></div>
     <div class="gap ${cls}"><b>${s.since} j</b><small>sans action / max ${s.gap}</small></div>
     <div class="tact"><button class="iconbtn" data-do="rskip" data-id="${r.id}" title="Passer cette fois">${ic('skip', 16)}</button></div>
@@ -102,7 +105,7 @@ function section(title, why, items, render, tone) {
   if (!items.length) return '';
   return `<section class="sec"><h2>${title}<span class="cnt">${items.length}</span><span class="why">${why}</span></h2><div class="card">${items.map(render).join('')}</div></section>`;
 }
-function greeting() { const h = new Date().getHours(); return (h < 6 ? 'Bonne nuit' : h < 18 ? 'Bonjour' : 'Bonsoir') + ', Brandon'; }
+function greeting() { const h = new Date().getHours(); return (h < 6 ? 'Bonne nuit' : h < 18 ? 'Bonjour' : 'Bonsoir') + ', ' + hub.name(); }
 
 /* 7 prochains jours : deadlines et followups à venir */
 function agendaHtml() {

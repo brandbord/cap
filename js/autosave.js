@@ -17,8 +17,9 @@ const fileSync = (() => {
     const d = await idb();
     return new Promise((res, rej) => { const tx = d.transaction('kv', mode), q = fn(tx.objectStore('kv')); tx.oncomplete = () => res(q.result); tx.onerror = () => rej(tx.error); });
   };
+  const hkey = () => 'handle.' + (hub.profile || 'brandon'); // un fichier de sauvegarde par profil
   const valid = d => d && ['actions', 'domains', 'routines', 'activities'].every(k => Array.isArray(d[k]));
-  const refresh = () => { if (typeof render !== 'function' || !document.getElementById('app').firstChild) return; if (ui.view === 'settings') render(); else refreshSide(); };
+  const refresh = () => { if (typeof render !== 'function' || !document.getElementById('app').firstChild || hub.screen !== 'cap') return; if (ui.view === 'settings') render(); else refreshSide(); };
   const readFile = async () => { const t = await (await handle.getFile()).text(); return t.trim() ? JSON.parse(t) : null; };
 
   async function write() {
@@ -37,7 +38,7 @@ const fileSync = (() => {
   function schedule() { if (st.state !== 'ok') return; clearTimeout(timer); timer = setTimeout(write, 400); }
 
   function adopt(d) {
-    db = d; normalizeDb(); ensureTrackDefaults(); try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+    COLLS.forEach(k => { d[k] = d[k] || []; }); d.meta = d.meta || {}; db = d; save(); ensureTrackDefaults();
     ui.sel = { actions: null, routines: null, activities: null }; render();
   }
   async function sync() {
@@ -49,12 +50,13 @@ const fileSync = (() => {
     } catch (e) { st.state = 'error'; }
     refresh();
   }
-  async function remember(h) { handle = h; st.name = h.name; try { await kv('readwrite', s => s.put(h, 'handle')); } catch (e) { /* ignore */ } }
+  async function remember(h) { handle = h; st.name = h.name; try { await kv('readwrite', s => s.put(h, hkey())); } catch (e) { /* ignore */ } }
 
   async function init() {
     if (!supported) return;
     try {
-      const h = await kv('readonly', s => s.get('handle'));
+      let h = await kv('readonly', s => s.get(hkey()));
+      if (!h && hub.profile === 'brandon') h = await kv('readonly', s => s.get('handle')); // fichier choisi avant les profils
       if (!h) return refresh();
       handle = h; st.name = h.name;
       if ((await h.queryPermission({ mode: 'readwrite' })) === 'granted') await sync(); else { st.state = 'needs'; refresh(); }
@@ -63,7 +65,7 @@ const fileSync = (() => {
   async function connect() {
     if (!supported) return;
     try {
-      const h = await showSaveFilePicker({ suggestedName: 'cap-donnees.json', types: [{ description: 'Données Cap', accept: { 'application/json': ['.json'] } }] });
+      const h = await showSaveFilePicker({ suggestedName: `cap-donnees-${hub.profile || 'brandon'}.json`, types: [{ description: 'Données Cap', accept: { 'application/json': ['.json'] } }] });
       await remember(h); st.state = 'ok';
       const d = await readFile().catch(() => null);
       if (valid(d) && (d.actions.length + d.routines.length) > 0 &&

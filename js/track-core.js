@@ -37,8 +37,9 @@ const nf = (n, d = 1) => (Math.round(n * 10 ** d) / 10 ** d).toLocaleString('fr-
 /* Crée une seule fois (ids fixes = fusion idempotente entre appareils) les catégories de départ */
 function ensureTrackDefaults() {
   if (db.meta.trackInit) return;
-  DEFAULT_CATS.forEach(c => { if (!tcat(c.id)) db.trackCats.push({ ...c }); });
-  DEFAULT_TYPES.forEach(t => { if (!ttype(t.id)) db.trackTypes.push({ ...t }); });
+  const mine = hub.profile === 'brandon' ? null : new Set(['c-sport']); // les projets SDK / Aurum sont ceux de Brandon : les autres profils partent du sport seulement
+  DEFAULT_CATS.filter(c => !mine || mine.has(c.id)).forEach(c => { if (!tcat(c.id)) db.trackCats.push({ ...c }); });
+  DEFAULT_TYPES.filter(t => !mine || mine.has(t.catId)).forEach(t => { if (!ttype(t.id)) db.trackTypes.push({ ...t }); });
   const sp = db.routines.find(r => /sport/i.test(r.title)), c = tcat('c-sport');
   if (sp && c && !c.routineId) c.routineId = sp.id;
   db.meta.trackInit = true; save();

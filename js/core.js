@@ -1,6 +1,6 @@
 'use strict';
 const APP_NAME = 'Cap';
-const KEY = 'cap.v1';
+let KEY = 'cap.v1'; // devient « cap.v1.<profil> » à l'ouverture d'un profil (voir hub.js)
 
 /* ---------- dates ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -81,21 +81,15 @@ const ICONS = {
 };
 const ic = (n, s = 16) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
 
-/* ---------- données ---------- */
+/* ---------- données ----------
+   `db` = ce que voit le profil : ses données perso + les éléments communs, assemblés en mémoire (sync.js : stores).
+   Les vues lisent et modifient `db` comme avant ; save() range chaque élément dans le bon fichier. */
 let db;
-function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) { db = JSON.parse(raw); db.meta = db.meta || {}; db.meta.createdAt = db.meta.createdAt || D.today(); normalizeDb(); return; }
-  } catch (e) { /* ignore */ }
-  db = seed(); save();
-}
+function load() { loadStores(); }
 function save() {
   db.meta.savedAt = Date.now();
-  if (typeof trackChanges === 'function') trackChanges();
-  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ }
+  commit(true);
   if (typeof fileSync !== 'undefined') fileSync.schedule();
-  if (typeof dbxSync !== 'undefined') dbxSync.schedule();
 }
 
 const DEFAULT_DOMAINS = [

@@ -14,6 +14,14 @@ function setTheme(p) { try { localStorage.setItem('cap.theme', p); } catch (e) {
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (themePref() === 'auto') { applyTheme(); render(); } });
 
 const H = {
+  ...coursesH,
+  ...listesH,
+  ...moisH,
+  ...courrierH,
+  share: el => { const o = byId(coll(el.dataset.k), el.dataset.id); if (o && !!o.shared !== (el.dataset.to === '1')) toggleShared(el.dataset.k, el.dataset.id); },
+  hideShared: el => setHideShared(el.dataset.v === '1'),
+  hubPick: el => hubPick(el.dataset.id), hubKey: el => (el.dataset.k === 'del' ? hubDel() : hubDigit(el.dataset.k)), hubBack: () => hubBack(),
+  hubOpen: el => hubOpen(el.dataset.app), hubHome: () => hubHome(), hubSwitch: () => hubSwitch(), hubChangePin: () => hubChangePin(),
   dbxConnect: () => dbxSync.connect(document.getElementById('dbx-key')?.value || dbxSync.key()),
   dbxNow: () => { dbxSync.syncNow(); },
   dbxOut: () => { dbxSync.disconnect(); toast('Dropbox déconnecté : tes données restent sur cet appareil'); },
@@ -117,7 +125,8 @@ const H = {
       : [{ label: 'Activités', icon: 'activity', run: () => { ui.view = 'activities'; render(); } },
         { label: 'Revue de la semaine', icon: 'review', run: () => { ui.view = 'review'; render(); } },
         { label: 'Réglages', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }, { label: 'Ouvrir Suivis', icon: 'target', run: () => H.appSwitch() }];
-    showMenu(r.left - 60, r.top - (first.length * 38 + 190), [...first, '-',
+    showMenu(r.left - 60, r.top - (first.length * 38 + 190 + 114), [...first, '-',
+      { label: hideShared() ? 'Afficher le commun' : 'Masquer le commun', icon: 'users', run: () => setHideShared(!hideShared()) }, { label: 'Applications', icon: 'grid', run: () => hubHome() }, { label: `Changer de profil (${hub.name()})`, icon: 'users', run: () => hubSwitch() },
       { label: isDark() ? 'Thème clair' : 'Thème sombre', icon: isDark() ? 'sun' : 'moon', run: () => H.themeToggle() },
       ...(dbxSync.connected() ? [{ label: dbxSync.st.state === 'ok' ? 'Dropbox synchronisé ✓ (relancer)' : 'Synchroniser Dropbox', icon: 'repeat', run: () => dbxSync.syncNow() }] : []),
       ...(s !== 'ok' && s !== 'unsupported' && !dbxSync.connected() ? [{ label: s === 'needs' ? 'Reconnecter la sauvegarde' : 'Activer la sauvegarde auto', icon: 'download', run: () => H.syncClick() }] : [])]);
@@ -132,7 +141,12 @@ const H = {
     a.download = `cap-copie-${D.today()}.json`; a.click(); toast('Copie téléchargée');
   },
   import: () => document.getElementById('importFile').click(),
-  reset: () => { if (confirm('Tout effacer définitivement ?' + (dbxSync.connected() ? '\n\nDropbox est connecté : cela effacera aussi tes autres appareils.' : '') + '\n(pense à exporter une copie avant)')) { db = emptyDb(); save(); ensureTrackDefaults(); ui.sel = { actions: null, routines: null, activities: null }; render(); } },
+  reset: () => {
+    if (!confirm('Effacer tes données perso définitivement ?' + (dbxSync.connected() ? '\n\nDropbox est connecté : cela effacera aussi tes autres appareils.' : '') + '\nLes éléments communs ne sont pas touchés.\n(pense à exporter une copie avant)')) return;
+    const C = stores.c.data, doms = db.domains; hidden = { actions: [], routines: [], activities: [] };
+    db = emptyDb(); db.domains = doms; db.actions.push(...C.actions); db.routines.push(...C.routines); db.activities.push(...C.activities);
+    save(); assemble(); ensureTrackDefaults(); ui.sel = { actions: null, routines: null, activities: null }; render();
+  },
 };
 
 document.addEventListener('click', e => {
@@ -200,6 +214,7 @@ document.addEventListener('contextmenu', e => {
     items = [{ label: 'Ajouter' }, ...['call', 'visit', 'mail', 'note'].map(t => ({ label: TYPES[t].label, icon: TYPES[t].icon, run: () => activityModal(link, t) })), '-'];
     if (isActive(a)) items.push({ label: 'Terminer', icon: 'check', run: () => completeAction(id) },
       { label: 'Reporter…', icon: 'skip', run: () => postponeMenu(id, x, y) }, { label: 'Mettre en attente…', icon: 'pause', run: () => waitingMenu(id, x, y) }, '-');
+    items.push({ label: a.shared ? 'Repasser en perso' : 'Passer en commun', icon: 'users', run: () => toggleShared(k, id) }, '-');
     items.push({ label: 'Supprimer', icon: 'trash', danger: true, run: () => removeItem(k, id) });
   } else if (k === 'routines') {
     const r = byId(db.routines, id);
@@ -209,6 +224,7 @@ document.addEventListener('contextmenu', e => {
       { label: 'Fait un autre jour…', icon: 'clock', run: () => askDate('Fait le', d => routineDone(id, d)) },
       { label: 'Ajouter une note', icon: 'note', run: () => activityModal(link, 'note') }, '-',
       { label: r.paused ? 'Reprendre' : 'Mettre en pause', icon: 'pause', run: () => { r.paused = !r.paused; save(); render(); } },
+      { label: r.shared ? 'Repasser en perso' : 'Passer en commun', icon: 'users', run: () => toggleShared(k, id) },
       { label: 'Supprimer', icon: 'trash', danger: true, run: () => removeItem(k, id) }];
   } else if (k === 'activities') {
     const l = linkOf(byId(db.activities, id));
@@ -220,6 +236,7 @@ document.addEventListener('contextmenu', e => {
 
 /* clavier */
 document.addEventListener('keydown', e => {
+  if (hub.screen !== 'cap') return hubKeydown(e); // écrans de connexion et d'accueil : pas de raccourcis de Cap
   const t = e.target, typing = /INPUT|TEXTAREA|SELECT/.test(t.tagName);
   if (e.key === 'Enter' && t.id === 'qlog') { e.preventDefault(); qlogSubmit(); return; }
   if (e.key === 'Tab' && !e.shiftKey && t.id === 'qlog') { const p = parseQuick(t.value); if (p.type && norm(p.q) !== norm(p.type.name)) { e.preventDefault(); t.value = p.type.name + ' ' + p.rest; qlogPreview(t.value); } return; }
@@ -289,18 +306,8 @@ document.addEventListener('mousedown', e => {
 });
 
 applyTheme();
-load();
-ensureTrackDefaults();
-{ /* lien direct : index.html#routines ou #actions+sel (ouvre le 1er élément) */
-  if (/~dark/.test(location.hash)) setTheme('dark'); else if (/~light/.test(location.hash)) setTheme('light');
-  if (/~track/.test(location.hash)) ui.app = 'track';
-  if (/~demo/.test(location.hash) && !hasDemo()) { seedDemoLogs(); save(); }
-  const [v, sel] = location.hash.slice(1).split('~')[0].split('+');
-  if (TITLES[v]) { ui.view = v; if (TRACK_VIEWS.includes(v)) ui.app = 'track'; if (sel && ui.sel[v] === null && COLL[v]) ui.sel[v] = coll(v)[0]?.id ?? null; }
-}
-render();
-fileSync.init();
-dbxSync.init();
+if (/~dark/.test(location.hash)) setTheme('dark'); else if (/~light/.test(location.hash)) setTheme('light');
+hubBoot(); // profil → (code) → accueil des applis ; charge les données du profil et lance les synchros
 /* installable + hors ligne (uniquement quand l'appli est servie en https ou localhost) */
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   const hadController = !!navigator.serviceWorker.controller;
