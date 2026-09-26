@@ -78,6 +78,9 @@ input,select,textarea{font:inherit;color:inherit}
 .row.sel{background:var(--accent-soft)}
 .row.sel::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
 .row.faded{opacity:.5}
+.row.row-waiting{opacity:.55}
+.row.row-done .ttl .t{color:var(--ink);text-decoration:line-through}
+.row.row-done{opacity:.7}
 .g-actions{grid-template-columns:30px 104px minmax(220px,1fr) 116px 150px 150px 70px 40px}
 .g-routines{grid-template-columns:minmax(200px,1fr) 150px 120px 150px 100px 150px 92px}
 .g-acts{grid-template-columns:130px 100px minmax(200px,1fr) 240px}
@@ -395,8 +398,9 @@ kbd{font:11px var(--sans);border:1px solid var(--line2);border-bottom-width:2px;
   .top .btn .lbl{display:none}
   .top .btn.primary{padding:9px 12px}
   .body{padding:0 12px 12px}
-  .toolbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+  .toolbar{flex-wrap:wrap;padding-bottom:10px}
   .toolbar>*{flex:none}
+  .minsrow{display:none}
   .search{margin-left:0}.search input{width:110px}
   .legend{display:none}
   .caltitle{min-width:0;font-size:19px}
@@ -404,7 +408,7 @@ kbd{font:11px var(--sans);border:1px solid var(--line2);border-bottom-width:2px;
   .split.has .detail{position:fixed;inset:0;z-index:35;border-radius:0;border:0;flex:none;display:block;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
   .split.has .listwrap{flex:1 1 auto}
   .grip,.split.has .grip{display:none}
-  .dhead{flex-wrap:wrap;padding:14px 16px 4px}
+  .dhead{flex-wrap:wrap;padding:14px 16px 4px;position:sticky;top:0;z-index:2;background:var(--surface);box-shadow:0 1px 0 var(--line)}
   .dhead .tin{flex:1 1 100%}
   .fields{grid-template-columns:1fr 1fr;padding:8px 16px 12px}
   .tiles{grid-template-columns:1fr 1fr;padding:4px 16px 12px}
@@ -776,3 +780,38 @@ svg.chart .cell:hover,svg.chart .cell:focus{stroke:var(--ink);stroke-width:1.5;o
 .fidscan video{width:100%;height:100%;object-fit:cover;display:block}
 .fidscan-frame{position:absolute;inset:15% 8%;border:2.5px dashed rgba(255,255,255,.85);border-radius:8px;pointer-events:none}
 @media (max-width:760px){.fidshow{padding:26px 16px;min-height:70vh}.fidshow h2{font-size:22px}.fidnum-only{font-size:26px}}
+
+/* ---- v1.19 : en-tête mobile allégé (retour, bascule Cap/Suivis, masquer le commun) ---- */
+.top .iconbtn.only-m.on{color:var(--warn);background:var(--warn-soft)}
+
+/* ---- v1.20 : trois vues (tout / perso seulement / commun seulement) ---- */
+.nav.vm-perso{color:var(--warn)}
+.nav.vm-commun{color:var(--blue)}
+.top .iconbtn.vm-perso{color:var(--warn);background:var(--warn-soft)}
+.top .iconbtn.vm-commun{color:var(--blue);background:color-mix(in srgb, var(--blue) 16%, transparent)}
+
+/* ---- v1.22 : Nous Deux (réutilise .cw .chead .citems .ci .ctitle .cchk .cdel .cempty .cadd .seg .chip) ---- */
+.ndwho{margin:2px 0 12px}
+.ndwho button{display:inline-flex;align-items:center;gap:7px}
+.ndwho button.on{color:var(--c)}
+.ndav{width:20px;height:20px;border-radius:50%;background:var(--c);color:#fff;font:600 11px var(--sans);font-style:normal;display:grid;place-items:center;flex:none}
+.ndtabs{display:flex;overflow-x:auto;max-width:100%;margin:0 0 16px;scrollbar-width:none}
+.ndtabs::-webkit-scrollbar{display:none}
+.ndtabs button{white-space:nowrap;flex:none}
+.ndsec{margin-bottom:20px}
+.ndh{font:600 13px var(--sans);text-transform:uppercase;letter-spacing:.07em;color:var(--ink2);margin:0 0 8px}
+.ndhint{margin:-4px 0 8px}
+.ndchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.ndf .ndlab{flex:0 0 42%;font-size:14px;color:var(--ink2);min-width:0}
+.ndf .ndval{text-align:right}
+@media (max-width:760px){.ndf .ndlab{flex-basis:46%;font-size:13px}}
+
+/* ---- v1.23 : réglages généraux (rouage discret en bas à droite) ---- */
+.gearbtn{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--ink2);opacity:.6;transition:.15s}
+.gearbtn:hover,.gearbtn:focus-visible{opacity:1;background:var(--side);color:var(--ink)}
+.gearbtn[hidden]{display:none}
+@media (hover:none){.gearbtn{opacity:.55}}
+.gearpanel .sec{margin-bottom:16px}
+.gearadv{margin-bottom:12px}
+.gearadv summary{cursor:pointer;color:var(--ink3);font-size:13px;padding:6px 0;margin-bottom:8px}
+.gearadv summary:hover{color:var(--ink2)}

@@ -20,8 +20,10 @@ const H = {
   ...courrierH,
   ...weekendH,
   ...cartesH,
+  ...ndH,
+  ...gearH,
   share: el => { const o = byId(coll(el.dataset.k), el.dataset.id); if (o && !!o.shared !== (el.dataset.to === '1')) toggleShared(el.dataset.k, el.dataset.id); },
-  hideShared: el => setHideShared(el.dataset.v === '1'),
+  viewMode: el => setViewMode(el.dataset.v),
   hubPick: el => hubPick(el.dataset.id), hubKey: el => (el.dataset.k === 'del' ? hubDel() : hubDigit(el.dataset.k)), hubBack: () => hubBack(),
   hubOpen: el => hubOpen(el.dataset.app), hubHome: () => hubHome(), hubSwitch: () => hubSwitch(), hubChangePin: () => hubChangePin(),
   dbxConnect: () => dbxSync.connect(document.getElementById('dbx-key')?.value || dbxSync.key()),
@@ -88,7 +90,6 @@ const H = {
   newAct: el => activityModal(el.dataset.id ? { k: el.dataset.k, id: el.dataset.id } : null),
   closeModal: () => closeModal(),
   closeDetail: () => { ui.sel[ui.view] = null; render(); },
-  fstatus: el => { ui.f.actions.status = el.dataset.v; render(); },
   fdomain: el => { const f = ui.f[el.dataset.k]; f.domain = f.domain === el.dataset.v ? null : el.dataset.v; render(); },
   ftype: el => { ui.f.activities.type = el.dataset.v || null; render(); },
   tab: el => { ui.tab[el.dataset.k] = el.dataset.v; render(); },
@@ -107,7 +108,7 @@ const H = {
   }, 'Domaine supprimé'),
   mins: el => { ui.minutes = el.dataset.v ? +el.dataset.v : null; render(); },
   rskip: el => skipMenu(el.dataset.id, ...at(el)),
-  drop: el => mutate(() => { const a = byId(db.actions, el.dataset.id); a.status = 'dropped'; a.inbox = false; }, 'Action abandonnée'),
+  drop: el => mutate(() => { const a = byId(db.actions, el.dataset.id); a.status = 'dropped'; a.inbox = false; a.doneAt = D.today(); }, 'Action abandonnée'),
   newLinked: el => { const r = byId(db.routines, el.dataset.id); newActionModal({ domainId: r.domainId, routineId: r.id }); },
   calNav: el => { ui.cal.off = +el.dataset.v === 0 ? 0 : ui.cal.off + +el.dataset.v; render(); },
   calAdd: el => newActionModal({ followup: el.dataset.d }),
@@ -121,17 +122,21 @@ const H = {
       ...(ev.length ? ['-'] : []), { label: 'Nouvelle action ce jour-là', icon: 'plus', run: () => newActionModal({ followup: d }) }]);
   },
   moreMenu: el => {
-    const r = el.getBoundingClientRect(), s = fileSync.st.state;
+    // Applications, changer de profil et thème sont déjà à l'accueil (un bouton en haut) ; Suivis/Cap et le retour à
+    // l'accueil ont déjà leur propre bouton dans l'en-tête mobile ; masquer le commun est aussi passé en bouton.
+    // La sauvegarde auto (fichier local) vit dans Réglages, pas ici. Ce menu ne garde que ce qui n'a nulle part
+    // ailleurs où vivre.
+    const r = el.getBoundingClientRect();
     const first = ui.app === 'track'
-      ? [{ label: 'Réglages de Suivis', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }, { label: 'Retour à Cap', icon: 'swap', run: () => H.appSwitch() }]
-      : [{ label: 'Activités', icon: 'activity', run: () => { ui.view = 'activities'; render(); } },
+      ? [{ label: 'Journal', icon: 'journal', run: () => { ui.view = 'tjournal'; render(); } },
+        { label: 'Stats', icon: 'chart', run: () => { ui.view = 'tstats'; render(); } },
+        { label: 'Réglages de Suivis', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }]
+      : [{ label: 'Journal', icon: 'journal', run: () => { ui.view = 'activities'; render(); } },
         { label: 'Revue de la semaine', icon: 'review', run: () => { ui.view = 'review'; render(); } },
-        { label: 'Réglages', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }, { label: 'Ouvrir Suivis', icon: 'target', run: () => H.appSwitch() }];
-    showMenu(r.left - 60, r.top - (first.length * 38 + 190 + 114), [...first, '-',
-      { label: hideShared() ? 'Afficher le commun' : 'Masquer le commun', icon: 'users', run: () => setHideShared(!hideShared()) }, { label: 'Applications', icon: 'grid', run: () => hubHome() }, { label: `Changer de profil (${hub.name()})`, icon: 'users', run: () => hubSwitch() },
-      { label: isDark() ? 'Thème clair' : 'Thème sombre', icon: isDark() ? 'sun' : 'moon', run: () => H.themeToggle() },
-      ...(dbxSync.connected() ? [{ label: dbxSync.st.state === 'ok' ? 'Dropbox synchronisé ✓ (relancer)' : 'Synchroniser Dropbox', icon: 'repeat', run: () => dbxSync.syncNow() }] : []),
-      ...(s !== 'ok' && s !== 'unsupported' && !dbxSync.connected() ? [{ label: s === 'needs' ? 'Reconnecter la sauvegarde' : 'Activer la sauvegarde auto', icon: 'download', run: () => H.syncClick() }] : [])]);
+        { label: 'Réglages', icon: 'gear', run: () => { ui.view = 'settings'; render(); } }];
+    const items = [...first,
+      ...(dbxSync.connected() ? [{ label: dbxSync.st.state === 'ok' ? 'Dropbox synchronisé ✓ (relancer)' : 'Synchroniser Dropbox', icon: 'repeat', run: () => dbxSync.syncNow() }] : [])];
+    showMenu(r.left - 60, r.top - (items.length * 38 + 28), items);
   },
   revp: el => { ui.revPeriod = +el.dataset.v; render(); },
   finishReview: () => { db.meta.lastReview = D.today(); save(); go('today'); toast('Revue terminée — belle semaine ✓'); },

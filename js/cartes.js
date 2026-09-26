@@ -45,7 +45,7 @@ const FID_SCAN_FORMATS = ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code
 const FID_KEY = 'cartes.v1.commun', FID_PKEY = () => 'cartes.v1.' + hub.profile;
 const fidC = { data: null, snap: new Map(), colls: ['folders', 'cards'] }; // commun : dossiers + cartes partagées
 const fidP = { data: null, snap: new Map(), colls: ['cards'] };           // perso : mes cartes privatisées
-const fidUi = { folder: 'all', show: null, scan: null, add: null };       // add/show/scan : id ou état de la modale en cours
+const fidUi = { folder: 'all', show: null, scan: null, add: null, from: null }; // from : appli d'où l'on vient (« courses ») → affichage réduit aux cartes, retour direct       // add/show/scan : id ou état de la modale en cours
 
 /* ---------- données ---------- */
 function fidLoad() {
@@ -116,8 +116,9 @@ function fidDelFolder(id) {
 function fidTileBadge() {
   try { const n = fidCards().length; return `<span class="tbadge">${n ? `${n} carte${n > 1 ? 's' : ''}` : 'Aucune carte'}</span>`; } catch (e) { return ''; }
 }
-/* Ouvre l'appli directement sur un dossier — utilisé par le raccourci de Courses */
-function openCartesFolder(folderId) { hub.screen = 'cartes'; fidUi.folder = folderId; fidUi.show = fidUi.add = fidUi.scan = null; render(); scrollTo(0, 0); dbxSync.syncNow(['cartes', 'cartesPerso']); }
+/* Ouvre les cartes d'un dossier — utilisé par le raccourci de Courses : `from` limite l'écran aux cartes de ce dossier (pas de chips, pas de dossiers)
+   et la flèche ramène à l'appli d'origine, sans passer par l'accueil de Cartes. */
+function openCartesFolder(folderId, from) { hub.screen = 'cartes'; fidUi.from = from || null; fidUi.folder = folderId; fidUi.show = fidUi.add = fidUi.scan = null; render(); scrollTo(0, 0); dbxSync.syncNow(['cartes', 'cartesPerso']); }
 
 /* ---------- rendu : liste ---------- */
 function fidFolderChips() {
@@ -149,9 +150,10 @@ function fidRowsHtml() {
   }).join('');
 }
 function fidListHtml() {
-  return `<header class="chead"><button class="iconbtn" data-do="hubHome" title="Retour aux applications">${ic('left', 20)}</button><h1>Cartes de fidélité</h1><span class="sp"></span>
+  const back = fidUi.from ? `<button class="iconbtn" data-do="fidBack" title="Retour aux courses">${ic('left', 20)}</button>` : `<button class="iconbtn" data-do="hubHome" title="Retour aux applications">${ic('left', 20)}</button>`;
+  return `<header class="chead">${back}<h1>${fidUi.from ? 'Mes cartes' : 'Cartes de fidélité'}</h1><span class="sp"></span>
       <button class="btn primary sm" data-do="fidNewCard">${ic('plus', 15)}Ajouter</button></header>
-    ${fidFolderChips()}
+    ${fidUi.from ? '' : fidFolderChips()}
     <ul class="citems" id="fidlist">${fidRowsHtml()}</ul>
     <footer class="hubfoot">${dbxBadge()}</footer>`;
 }
@@ -283,11 +285,12 @@ const cartesH = {
   fidNewCard: () => fidNewCard(),
   fidShow: el => { fidUi.show = el.dataset.id; render(); },
   fidClose: () => { fidUi.show = null; render(); },
+  fidBack: () => { const to = fidUi.from; fidUi.from = null; fidUi.show = fidUi.add = fidUi.scan = null; hub.screen = to; render(); scrollTo(0, 0); },
   fidDel: el => fidDelCard(el.dataset.id),
   fidSetScope: el => { const c = fidCards().find(x => x.id === el.dataset.id); if (c && c.private !== (el.dataset.v === '1')) fidToggle(el.dataset.id); },
 };
 function cartesKey(e) {
-  if (e.key === 'Escape') { if (fidUi.show) { fidUi.show = null; render(); } else hubHome(); }
+  if (e.key === 'Escape') { if (fidUi.show) { fidUi.show = null; render(); } else if (fidUi.from) cartesH.fidBack(); else hubHome(); }
 }
 document.addEventListener('change', e => {
   if (e.target.id !== 'fid-show-folder') return;

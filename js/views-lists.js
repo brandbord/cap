@@ -19,19 +19,19 @@ const MINS = [[15, '15 min'], [30, '30 min'], [60, '1 h'], [240, '½ jour']];
 const minsHtml = () => `<span class="mins" title="Ne montre que ce qui tient dans le temps dont tu disposes (effort estimé)">${ic('clock', 14)}<span>J'ai</span>${MINS.map(([m, l]) =>
   `<button class="${ui.minutes === m ? 'on' : ''}" data-do="mins" data-v="${m}">${l}</button>`).join('')}${ui.minutes ? '<button data-do="mins" data-v="" class="x">tout voir</button>' : ''}</span>`;
 
-/* ---------- ACTIONS ---------- */
+/* ---------- ACTIONS ----------
+   Toujours la liste entière (le filtre Actives/En attente/Terminées/Toutes a été retiré, jugé inutile) :
+   en attente = grisée, terminée/abandonnée = noircie (barrée) et disparaît d'elle-même 14 jours après. */
 function actionRows() {
   const f = ui.f.actions;
-  let rows = db.actions.filter(a =>
-    (f.status === 'active' ? isActive(a) : f.status === 'waiting' ? a.status === 'waiting' : f.status === 'done' ? (a.status === 'done' || a.status === 'dropped') : true) &&
-    (!f.domain || a.domainId === f.domain) && (!ui.minutes || (a.effort && a.effort <= ui.minutes)) && matchQ(f.q, a.title, a.notes));
+  let rows = db.actions.filter(a => (!f.domain || a.domainId === f.domain) && (!ui.minutes || (a.effort && a.effort <= ui.minutes)) && matchQ(f.q, a.title, a.notes));
   rows = sortRows(rows, 'actions', (a, k) => ({
     priority: score(a), crit: a.crit, title: a.title.toLowerCase(), status: Object.keys(STATUS).indexOf(a.status),
     deadline: a.deadline, followup: a.followup, effort: a.effort, postponed: a.postponed,
   }[k]));
   const head = hdHtml('actions', 'g-actions', [['', ''], ['priority', 'Criticité'], ['title', 'Action'], ['status', 'Statut'], ['deadline', 'Deadline'], ['followup', 'Followup'], ['effort', 'Effort'], ['postponed', '↻']]);
   if (!rows.length) return head + emptyRows('Rien ici', 'Aucune action ne correspond à ces filtres.');
-  return head + rows.map(a => `<div class="row g-actions ${ui.sel.actions === a.id ? 'sel' : ''} ${isActive(a) ? '' : 'faded'}" data-row data-k="actions" data-id="${a.id}">
+  return head + rows.map(a => `<div class="row g-actions ${ui.sel.actions === a.id ? 'sel' : ''} ${a.status === 'waiting' ? 'row-waiting' : (a.status === 'done' || a.status === 'dropped') ? 'row-done' : ''}" data-row data-k="actions" data-id="${a.id}">
     <button class="check" data-do="complete" data-id="${a.id}" title="Terminer" style="${isActive(a) ? '' : 'visibility:hidden'}">${ic('check', 13)}</button>
     ${critPill(a.crit)}
     <div class="ttl">${domDot(a.domainId)}<span class="t">${esc(a.title)}</span>${sharedTag(a)}${a.inbox ? '<span class="tag">à trier</span>' : ''}${(a.links || []).length ? `<span class="muted" title="${a.links.length} lien(s) Drive">${ic('link', 13)}</span>` : ''}</div>
@@ -40,9 +40,7 @@ function actionRows() {
 }
 function viewActions() {
   const f = ui.f.actions;
-  const seg = [['active', 'Actives'], ['waiting', 'En attente'], ['done', 'Terminées'], ['all', 'Toutes']];
-  const tb = `<div class="toolbar"><div class="seg">${seg.map(([k, l]) => `<button class="${f.status === k ? 'on' : ''}" data-do="fstatus" data-v="${k}">${l}</button>`).join('')}</div>
-    ${db.domains.map(d => `<button class="chip ${f.domain === d.id ? 'on' : ''}" data-do="fdomain" data-k="actions" data-v="${d.id}">${domDot(d.id)}${esc(d.name)}</button>`).join('')}
+  const tb = `<div class="toolbar">${db.domains.map(d => `<button class="chip ${f.domain === d.id ? 'on' : ''}" data-do="fdomain" data-k="actions" data-v="${d.id}">${domDot(d.id)}${esc(d.name)}</button>`).join('')}
     ${minsHtml()}
     <label class="search">${ic('search', 15)}<input data-search="actions" placeholder="Rechercher…" value="${esc(f.q)}"></label></div>`;
   return page(tb, 'actions', actionDetail);
@@ -67,7 +65,7 @@ function actionDetail(a) {
       ${a.routineId && byId(db.routines, a.routineId) ? `<div class="fld"><label>Routine liée</label><button class="btn sm" data-do="open" data-k="routines" data-id="${a.routineId}">${ic('repeat', 14)}${esc(byId(db.routines, a.routineId).title)}</button></div>` : ''}
     </div>
     <div class="tabs"><button class="${tab === 'notes' ? 'on' : ''}" data-do="tab" data-k="actions" data-v="notes">Notes</button>
-      <button class="${tab === 'acts' ? 'on' : ''}" data-do="tab" data-k="actions" data-v="acts">Activités (${acts.length})</button>
+      <button class="${tab === 'acts' ? 'on' : ''}" data-do="tab" data-k="actions" data-v="acts">Journal (${acts.length})</button>
       <button class="${tab === 'links' ? 'on' : ''}" data-do="tab" data-k="actions" data-v="links">Liens Drive (${(a.links || []).length})</button><span class="sp"></span></div>
     <div class="tabbody">${tab === 'notes'
       ? `<textarea class="notes" ${F('notes')} placeholder="Dernières actions intéressantes… ex : 18/09 : J'ai acheté le matériel pour commencer les travaux !">${esc(a.notes)}</textarea>

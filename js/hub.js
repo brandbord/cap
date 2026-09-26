@@ -18,6 +18,7 @@ const APPS = [
   { id: 'cartes', name: 'Cartes', tag: 'cartes de fidélité', icon: 'cardId', ready: true },
   { id: 'listes', name: 'Nos listes', tag: 'destinations, musique…', icon: 'star', ready: true },
   { id: 'mois', name: 'Mois', tag: 'fruits, légumes & jardin de saison', icon: 'calendar', ready: true },
+  { id: 'nd', name: 'Nous Deux', tag: 'goûts, cadeaux, tailles…', icon: 'heart', ready: true },
   { id: 'cap', name: 'Cap', tag: 'ma vie, en clair', icon: 'target', ready: true },
 ];
 const HUB_KEY = 'cap.hub', SESSION_KEY = 'cap.session';
@@ -105,6 +106,14 @@ const cartesPersoSpec = p => ({ // mes cartes privatisées uniquement : ne trans
   id: 'cartesPerso', path: `/cartes/${p}.json`, get: () => fidP.data, valid: d => d && Array.isArray(d.cards), merge: (a, b) => mergeDb(a, b, ['cards']),
   untouched: () => false, adopt: d => fidAdoptP(d),
 });
+const nousdeuxSpec = () => ({ // plats, goûts, souhaits et fiches (tailles, santé, soins) des deux profils : un seul fichier commun
+  id: 'nousdeux', path: '/nousdeux/commun.json', get: () => nd.c.data, valid: d => d && ND_COLLS_C.every(k => Array.isArray(d[k])), merge: (a, b) => mergeDb(a, b, ND_COLLS_C),
+  untouched: () => false, adopt: d => ndAdoptC(d),
+});
+const nousdeuxPersoSpec = p => ({ // mes idées secrètes : ne transitent jamais par le fichier commun
+  id: 'nousdeuxPerso', path: `/nousdeux/${p}.json`, get: () => nd.p.data, valid: d => d && ND_COLLS_P.every(k => Array.isArray(d[k])), merge: (a, b) => mergeDb(a, b, ND_COLLS_P),
+  untouched: () => false, adopt: d => ndAdoptP(d),
+});
 // Mois (fruits/légumes de saison, jardin, lune) n'a pas de fichier : contenu de référence, pareil pour tous, sans synchro.
 
 /* ---------- messages d'accueil de Julya (un tirage à chaque ouverture) ----------
@@ -154,7 +163,7 @@ function hubEnter(p) {
   if (p === 'brandon' && !localStorage.getItem(KEY)) { // les données d'avant les profils deviennent celles de Brandon (l'ancienne clé reste, par sécurité)
     try { const old = localStorage.getItem('cap.v1'); if (old) localStorage.setItem(KEY, old); } catch (e) { /* ignore */ }
   }
-  load(); ensureTrackDefaults(); coursesLoad(); listesLoad(); courrierLoad(); weekendLoad(); fidLoad();
+  load(); ensureTrackDefaults(); coursesLoad(); listesLoad(); courrierLoad(); weekendLoad(); fidLoad(); ndLoad();
   hub.loveMsg = p === 'julya' ? pickLoveMessage() : null; // un seul tirage pour toute la session : ne change pas en changeant d'écran
   const h = location.hash;
   hub.screen = 'home';
@@ -162,9 +171,10 @@ function hubEnter(p) {
   if (/~demo/.test(h) && !hasDemo()) { seedDemoLogs(); save(); }
   const [v, sel] = h.slice(1).split('~')[0].split('+'); // lien direct : #routines ou #actions+sel
   if (TITLES[v]) { ui.view = v; hub.screen = 'cap'; if (TRACK_VIEWS.includes(v)) ui.app = 'track'; if (sel && ui.sel[v] === null && COLL[v]) ui.sel[v] = coll(v)[0]?.id ?? null; }
-  if (hub.afterAuth) { hub.afterAuth = false; hub.screen = 'cap'; ui.view = 'settings'; }
-  dbxSync.setSpecs([hubSpec(), capSpec(p), communSpec(), coursesSpec(), listesSpec(), courrierSpec(), weekendSpec(), cartesSpec(), cartesPersoSpec(p)]);
+  const reopenGear = hub.afterAuth; hub.afterAuth = false;
+  dbxSync.setSpecs([hubSpec(), capSpec(p), communSpec(), coursesSpec(), listesSpec(), courrierSpec(), weekendSpec(), cartesSpec(), cartesPersoSpec(p), nousdeuxSpec(), nousdeuxPersoSpec(p)]);
   render();
+  if (reopenGear) setTimeout(gearOpen, 0); // retour de la connexion Dropbox : on rouvre les réglages
   fileSync.init();
   dbxSync.syncNow();
 }
@@ -198,14 +208,15 @@ async function hubSubmit() {
 }
 function hubOpen(app) {
   if (!APPS.find(a => a.id === app && a.ready)) return;
-  if (app === 'cartes') fidUi.show = fidUi.add = fidUi.scan = null; // toujours repartir de la liste, pas de la dernière carte ouverte
+  if (app === 'cartes') fidUi.show = fidUi.add = fidUi.scan = fidUi.from = null; // toujours repartir de la liste, pas de la dernière carte ouverte
   hub.screen = app; render(); scrollTo(0, 0);
   if (['courses', 'listes', 'weekend'].includes(app)) dbxSync.syncNow([app]); // listes partagées : on les met à jour à l'ouverture
   if (app === 'cartes') dbxSync.syncNow(['cartes', 'cartesPerso']);
+  if (app === 'nd') dbxSync.syncNow(['nousdeux', 'nousdeuxPerso']);
 }
-function hubHome() { closeModal(); closeMenu(); hub.screen = 'home'; render(); }
+function hubHome() { fidUi.from = null; closeModal(); closeMenu(); hub.screen = 'home'; render(); }
 function hubSwitch() { lsSet(SESSION_KEY, null); location.href = location.pathname; }
-function hubChangePin() { hub.screen = 'login'; hub.pick = hub.profile; hub.changing = true; hub.step = 'new'; hub.entry = hub.first = hub.err = ''; render(); }
+function hubChangePin() { closeModal(); hub.screen = 'login'; hub.pick = hub.profile; hub.changing = true; hub.step = 'new'; hub.entry = hub.first = hub.err = ''; render(); }
 function hubKeydown(e) {
   if (hub.screen === 'courses') return coursesKey(e);
   if (hub.screen === 'listes') return listesKey(e);
@@ -213,6 +224,7 @@ function hubKeydown(e) {
   if (hub.screen === 'courrier') return mailKey(e);
   if (hub.screen === 'weekend') return weekendKey(e);
   if (hub.screen === 'cartes') return cartesKey(e);
+  if (hub.screen === 'nd') return ndKey(e);
   if (hub.screen !== 'login' || !hub.pick || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^\d$/.test(e.key)) hubDigit(e.key);
   else if (e.key === 'Backspace') hubDel();
@@ -254,7 +266,7 @@ function homeHtml() {
   const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const love = hub.profile === 'julya' && hub.loveMsg;
   const tile = a => `<button class="atile ${a.ready ? '' : 'later'}" ${a.ready ? `data-do="hubOpen" data-app="${a.id}"` : 'disabled'}>
-    <span class="tico">${ic(a.icon, 28)}</span><b>${esc(a.name)}</b><span class="ttag">${esc(a.tag)}</span>${a.ready ? { cap: capTileBadge, courses: coursesTileBadge, listes: listesTileBadge, mois: moisTileBadge, weekend: weekendTileBadge, cartes: fidTileBadge }[a.id]?.() ?? '' : '<span class="tbadge">Bientôt</span>'}</button>`;
+    <span class="tico">${ic(a.icon, 28)}</span><b>${esc(a.name)}</b><span class="ttag">${esc(a.tag)}</span>${a.ready ? { cap: capTileBadge, courses: coursesTileBadge, listes: listesTileBadge, mois: moisTileBadge, weekend: weekendTileBadge, cartes: fidTileBadge, nd: ndTileBadge }[a.id]?.() ?? '' : '<span class="tbadge">Bientôt</span>'}</button>`;
   return `<div class="hubwrap"><div class="hh">
     <header class="hubtop"><div><h1 class="${love ? `love${love.special ? ' special' : ''}` : ''}">${love ? esc(love.text) : `${hello}, ${esc(p.name)}`}</h1><span class="sub">${esc(date[0].toUpperCase() + date.slice(1))}</span></div><span class="sp"></span>
       ${mailboxBtn()}<button class="iconbtn" data-do="themeToggle" title="Thème clair / sombre">${ic(isDark() ? 'sun' : 'moon', 18)}</button>
@@ -265,15 +277,17 @@ function homeHtml() {
 function hubRender() {
   const app = document.getElementById('app');
   app.className = 'hubmode'; document.documentElement.dataset.app = 'cap';
-  app.innerHTML = { login: loginHtml, home: homeHtml, courses: coursesHtml, listes: listesHtml, mois: moisHtml, courrier: courrierHtml, weekend: weekendHtml, cartes: cartesHtml }[hub.screen]?.() ?? '';
+  app.innerHTML = { login: loginHtml, home: homeHtml, courses: coursesHtml, listes: listesHtml, mois: moisHtml, courrier: courrierHtml, weekend: weekendHtml, cartes: cartesHtml, nd: ndHtml }[hub.screen]?.() ?? '';
   if (hub.screen === 'cartes') cartesAfterRender();
 }
-function profileSettingsHtml() {
+function profileCardHtml() {
   const p = profileOf(hub.profile);
   return `<section class="sec"><h2>Profil<span class="why">cet appareil reste ouvert sur ton profil</span></h2><div class="card" style="padding:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     ${avatar(p, true)}<b>${esc(p.name)}</b><span style="flex:1"></span>
-    <button class="btn" data-do="hubChangePin">${ic('lock', 15)}Changer mon code</button><button class="btn" data-do="hubSwitch">${ic('users', 15)}Changer de profil</button></div></section>
-    <section class="sec"><h2>Éléments communs<span class="why">actions et routines partagées avec ${esc(otherProfile().name)}</span></h2><div class="card" style="padding:16px">
-      <div class="seg">${[[0, 'Visibles'], [1, 'Masqués']].map(([v, l]) => `<button class="${(hideShared() ? 1 : 0) === v ? 'on' : ''}" data-do="hideShared" data-v="${v}">${l}</button>`).join('')}</div>
-      <p class="hint" style="margin:10px 0 0">Masqués : tu ne vois plus que ton perso (rien n'est supprimé, ${esc(otherProfile().name)} continue de tout voir). Réglage propre à cet appareil. Pour partager ou reprendre un élément : bouton <b>Perso / Commun</b> dans sa fiche, ou clic droit.</p></div></section>`;
+    <button class="btn" data-do="hubChangePin">${ic('lock', 15)}Changer mon code</button><button class="btn" data-do="hubSwitch">${ic('users', 15)}Changer de profil</button></div></section>`;
+}
+function profileSettingsHtml() {
+  return `<section class="sec"><h2>Éléments communs<span class="why">actions et routines partagées avec ${esc(otherProfile().name)}</span></h2><div class="card" style="padding:16px">
+      <div class="seg">${[['all', 'Tout voir'], ['perso', 'Perso seulement'], ['commun', 'Commun seulement']].map(([v, l]) => `<button class="${viewMode() === v ? 'on' : ''}" data-do="viewMode" data-v="${v}">${l}</button>`).join('')}</div>
+      <p class="hint" style="margin:10px 0 0">« Perso seulement » masque le commun ; « Commun seulement » masque ton perso. Dans les deux cas, rien n'est supprimé : ${esc(otherProfile().name)} continue de tout voir de son côté. Réglage propre à cet appareil. Pour partager ou reprendre un élément : bouton <b>Perso / Commun</b> dans sa fiche, ou clic droit.</p></div></section>`;
 }

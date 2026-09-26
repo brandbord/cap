@@ -3,7 +3,7 @@ const ui = {
   view: 'today',
   sel: { actions: null, routines: null, activities: null },
   tab: { actions: 'notes', routines: 'notes' },
-  f: { actions: { status: 'active', domain: null, q: '' }, routines: { domain: null, q: '' }, activities: { type: null, q: '' } },
+  f: { actions: { domain: null, q: '' }, routines: { domain: null, q: '' }, activities: { type: null, q: '' } },
   sort: { actions: { key: 'priority', dir: -1 }, routines: { key: 'urgency', dir: -1 }, activities: { key: 'date', dir: -1 } },
   split: 46,
   minutes: null,          // filtre « j'ai X minutes »
@@ -44,7 +44,7 @@ function completeAction(id) {
 function setStatus(id, status) {
   const a = byId(db.actions, id);
   if (status === 'done') return completeAction(id);
-  a.status = status; a.doneAt = null; save(); render();
+  a.status = status; a.doneAt = status === 'dropped' ? D.today() : null; save(); render();
 }
 function postpone(id, to) {
   mutate(() => {
@@ -85,7 +85,8 @@ function toggleShared(kind, id) {
   const o = byId(coll(kind), id); if (!o) return;
   const on = !o.shared;
   mutate(() => { if (on) { o.shared = true; o.sharedBy = hub.profile; } else { delete o.shared; delete o.sharedBy; } },
-    on ? `Passée en commun : ${otherProfile().name} la voit aussi${hideShared() ? ' (commun masqué : elle disparaît de ta vue)' : ''}` : 'Repassée en perso : toi seul la vois');
+    on ? `Passée en commun : ${otherProfile().name} la voit aussi${viewMode() === 'perso' ? ' (commun masqué chez toi : elle disparaît de ta vue)' : ''}`
+       : `Repassée en perso : toi seul la vois${viewMode() === 'commun' ? ' (perso masqué chez toi : elle disparaît aussi de ta vue)' : ''}`);
 }
 
 /* ---------- navigation ---------- */
@@ -93,11 +94,7 @@ function go(view, id = null) {
   ui.view = view;
   if (id) {
     ui.sel[view] = id;
-    if (view === 'actions') {
-      const a = byId(db.actions, id), f = ui.f.actions;
-      if (a && !isActive(a) && f.status !== 'all' && f.status !== 'done') f.status = 'all';
-      f.domain = null; f.q = '';
-    }
+    if (view === 'actions') { ui.f.actions.domain = null; ui.f.actions.q = ''; }
     if (view === 'routines') { ui.f.routines.domain = null; ui.f.routines.q = ''; }
     if (view === 'activities') { ui.f.activities.type = null; ui.f.activities.q = ''; }
   }

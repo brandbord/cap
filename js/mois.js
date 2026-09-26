@@ -44,22 +44,56 @@ const MOIS_DATA = [
     legumes: ['Poireau', 'Potiron', 'Chou', 'Céleri-rave', 'Endive', 'Panais', 'Topinambour'],
     jardin: ['Protéger les plantes fragiles du gel', 'Planifier les cultures de l\'année prochaine', 'Commander les graines pour le printemps', 'Pailler les massifs pour l\'hiver'] },
 ];
-/* Un mot de turc par mois, avec sa traduction (Julya a déjà les bases : au-delà de « bonjour, ça va »).
-   Indice aligné sur MOIS_DATA (0 = janvier). */
-const MOT_MOIS = [
-  { mot: 'Ocak', sens: 'Poêle, foyer — et c\'est aussi le nom de ce mois en turc !' },
+/* Un mot de turc par SEMAINE (Julya a déjà les bases : au-delà de « bonjour, ça va »), affiché dans Mois.
+   Change chaque lundi, indépendamment du mois affiché (même en naviguant avec les flèches, c'est toujours
+   le mot de la semaine EN COURS). 40 mots : de quoi tenir près de 9 mois avant de reboucler. */
+const MOTS_SEMAINE = [
+  { mot: 'Ocak', sens: 'Poêle, foyer (et le nom de janvier, en turc)' },
   { mot: 'Huzur', sens: 'Paix intérieure, sérénité' },
   { mot: 'Bahar', sens: 'Printemps' },
   { mot: 'Yağmur', sens: 'Pluie' },
   { mot: 'Kelebek', sens: 'Papillon' },
   { mot: 'Güneş', sens: 'Soleil' },
   { mot: 'Deniz', sens: 'Mer' },
-  { mot: 'Yıldız', sens: 'Étoile — les étoiles filantes d\'août' },
+  { mot: 'Yıldız', sens: 'Étoile' },
   { mot: 'Rüzgar', sens: 'Vent' },
   { mot: 'Yaprak', sens: 'Feuille' },
   { mot: 'Şükür', sens: 'Gratitude' },
   { mot: 'Kar', sens: 'Neige' },
+  { mot: 'Gökyüzü', sens: 'Ciel' },
+  { mot: 'Bulut', sens: 'Nuage' },
+  { mot: 'Çiçek', sens: 'Fleur' },
+  { mot: 'Ağaç', sens: 'Arbre' },
+  { mot: 'Kuş', sens: 'Oiseau' },
+  { mot: 'Balık', sens: 'Poisson' },
+  { mot: 'Ev', sens: 'Maison, foyer' },
+  { mot: 'Aile', sens: 'Famille' },
+  { mot: 'Dostluk', sens: 'Amitié' },
+  { mot: 'Sevgi', sens: 'Affection, tendresse' },
+  { mot: 'Mutluluk', sens: 'Bonheur' },
+  { mot: 'Şans', sens: 'Chance' },
+  { mot: 'Zaman', sens: 'Temps' },
+  { mot: 'Anı', sens: 'Souvenir' },
+  { mot: 'Hayal', sens: 'Rêverie, imagination' },
+  { mot: 'Rüya', sens: 'Rêve (la nuit)' },
+  { mot: 'Umut', sens: 'Espoir' },
+  { mot: 'Merak', sens: 'Curiosité' },
+  { mot: 'Cesaret', sens: 'Courage' },
+  { mot: 'Sabır', sens: 'Patience' },
+  { mot: 'Doğa', sens: 'Nature' },
+  { mot: 'Kahve', sens: 'Café' },
+  { mot: 'Çay', sens: 'Thé' },
+  { mot: 'Ekmek', sens: 'Pain' },
+  { mot: 'Şarkı', sens: 'Chanson' },
+  { mot: 'Gece', sens: 'Nuit' },
+  { mot: 'Sonbahar', sens: 'Automne' },
+  { mot: 'Kış', sens: 'Hiver' },
 ];
+const MOT_REF = '2024-01-01'; // référence fixe arbitraire, juste pour compter des semaines qui s'enchaînent
+function motSemaine() {
+  const n = D.diff(D.monday(D.today()), MOT_REF), semaine = Math.floor(n / 7);
+  return MOTS_SEMAINE[((semaine % MOTS_SEMAINE.length) + MOTS_SEMAINE.length) % MOTS_SEMAINE.length];
+}
 
 /* ---------- phases de la lune (approximation astronomique, sans service externe) ----------
    Cycle synodique moyen (29,53059 j) depuis une nouvelle lune de référence connue (6 janvier 2000, 18h14 UTC).
@@ -90,7 +124,7 @@ function moisHtml() {
   const i = moisIdx(), d = MOIS_DATA[i], cur = moisOff === 0;
   const jcolor = DEFAULT_DOMAINS.find(x => x.id === 'jardin')?.color || 'var(--ok)';
   const chips = (list, cls) => `<div class="mchips">${list.map(x => `<span class="mchip ${cls}">${esc(x)}</span>`).join('')}</div>`;
-  const mot = MOT_MOIS[i];
+  const mot = motSemaine();
   const moon = moonEventsForMonth(new Date().getFullYear(), new Date().getMonth() + moisOff);
   return `<div class="hubwrap cw"><div class="cwrap mwrap">
     <header class="chead"><button class="iconbtn" data-do="hubHome" title="Retour aux applications">${ic('left', 20)}</button>
@@ -99,7 +133,7 @@ function moisHtml() {
       <button class="iconbtn" data-do="moisNav" data-v="1" title="Mois suivant">${ic('right', 16)}</button>
       <span class="sub">${cur ? 'Ce mois-ci' : ''}</span><span class="sp"></span>
       ${!cur ? `<button class="btn sm" data-do="moisNav" data-v="0">${ic('calendar', 14)}Ce mois-ci</button>` : ''}</header>
-    <section class="msec motsec"><h2>Mot du mois <span class="motflag">turc</span></h2><div class="motword">${esc(mot.mot)}</div><div class="motsens">${esc(mot.sens)}</div></section>
+    <section class="msec motsec"><h2>Mot de la semaine <span class="motflag">turc</span></h2><div class="motword">${esc(mot.mot)}</div><div class="motsens">${esc(mot.sens)}</div></section>
     <section class="msec"><h2>Fruits de saison</h2>${chips(d.fruits, 'fruit')}</section>
     <section class="msec"><h2>Légumes de saison</h2>${chips(d.legumes, 'legume')}</section>
     <section class="msec" style="--c:${jcolor}"><h2>Au jardin ce mois-ci</h2><ul class="mtips">${d.jardin.map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>

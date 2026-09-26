@@ -8,7 +8,7 @@ function dbxSettingsHtml() {
     const label = { ok: `Synchronisé ${st.last ? ago(st.last) : ''}`, syncing: 'Synchronisation en cours…', offline: 'Hors ligne : la synchro reprendra dès le retour du réseau.',
       needs: 'La connexion a expiré : reconnecte-toi ci-dessous.', error: `Erreur : ${esc(st.err || 'inconnue')}`, none: 'En attente' }[st.state];
     return `<section class="sec">${head}<div class="card" style="padding:16px"><p style="margin:0 0 12px"><b>${label}</b></p>
-      <p class="hint" style="margin:0 0 12px">Fichier : <code>Applications/Cap/cap/${esc(hub.profile)}.json</code> dans ton Dropbox (un fichier par profil). La synchro se fait à l'ouverture, après chaque modification et au retour dans l'appli.</p>
+      <p class="hint" style="margin:0 0 12px">Tes données sont rangées dans le dossier <code>Applications/…</code> de ton Dropbox. La synchro se fait à l'ouverture, après chaque modification et au retour dans l'appli.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-do="dbxNow">Synchroniser maintenant</button>
       ${st.state === 'needs' ? '<button class="btn primary" data-do="dbxConnect">Reconnecter Dropbox</button>' : ''}
       <button class="btn danger" data-do="dbxOut">Se déconnecter</button></div></div></section>`;
@@ -29,20 +29,7 @@ function viewSettings() {
           <input class="in" value="${esc(d.name)}" data-dom="${d.id}" data-f="name"><span class="muted">${n} élément${n > 1 ? 's' : ''}</span>
           <button class="iconbtn" data-do="delDom" data-id="${d.id}" title="Supprimer">${ic('trash', 15)}</button></div>`;
       }).join('')}
-      <div style="padding:10px 16px"><button class="btn sm" data-do="addDom">${ic('plus', 14)}Ajouter un domaine</button></div></div></section>
-    <section class="sec"><h2>Apparence<span class="why">propre à cet appareil</span></h2><div class="card" style="padding:16px">
-      <div class="seg">${[['light', 'Clair'], ['dark', 'Sombre'], ['auto', 'Auto (système)']].map(([v, l]) => `<button class="${themePref() === v ? 'on' : ''}" data-do="theme" data-v="${v}">${l}</button>`).join('')}</div></div></section>
-    ${dbxSettingsHtml()}
-    <section class="sec"><h2>Sauvegarde automatique<span class="why">chaque modification est recopiée dans un fichier</span></h2><div class="card" style="padding:16px">
-      ${syncBadge()}
-      <p class="hint" style="margin:10px 0 12px">${fileSync.st.state === 'ok' ? `Tout est enregistré en continu dans <b>${esc(fileSync.st.name)}</b>. Rien à faire.`
-        : fileSync.supported ? 'Choisis un fichier une seule fois (par exemple dans OneDrive pour avoir aussi une copie dans le cloud). Ensuite, plus rien à faire.' : 'Ce navigateur ne permet pas l\'écriture dans un fichier.'}</p>
-      ${fileSync.supported ? `<button class="btn" data-do="syncPick">${ic('download', 15)}${fileSync.st.state === 'none' ? 'Choisir le fichier de sauvegarde' : 'Changer de fichier'}</button>` : ''}</div></section>
-    <section class="sec"><h2>Outils<span class="why">export manuel, import, remise à zéro</span></h2><div class="card" style="padding:16px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn" data-do="export">${ic('download', 15)}Exporter une copie</button>
-      <button class="btn" data-do="import">${ic('upload', 15)}Importer</button>
-      <button class="btn danger" data-do="reset">${ic('trash', 15)}Tout effacer</button>
-      <input type="file" id="importFile" accept="application/json" hidden></div></section></div></div>`;
+      <div style="padding:10px 16px"><button class="btn sm" data-do="addDom">${ic('plus', 14)}Ajouter un domaine</button></div></div></section></div></div>`;
 }
 
 /* ---------- modales ---------- */
@@ -110,7 +97,7 @@ function activityModal(link, type = 'note') {
 const TITLES = {
   today: ['Aujourd\'hui', 'ce qui demande ton attention'], actions: ['Actions', 'tout ce que tu as décidé de mener'],
   calendar: ['Calendrier', 'deadlines, followups et routines à venir'], review: ['Revue de la semaine', 'deux minutes pour faire le tri et repartir léger'],
-  routines: ['Routines', 'ce qui doit revenir régulièrement'], activities: ['Activités', 'appels, visites, mails, notes, « fait »'], settings: ['Réglages', ''],
+  routines: ['Routines', 'ce qui doit revenir régulièrement'], activities: ['Journal', 'appels, visites, mails, notes, « fait »'], settings: ['Réglages', ''],
   tdash: ['Cette semaine', ''], tjournal: ['Journal', 'toutes tes séances'], tstats: ['Stats', 'ta régularité, semaine après semaine'], tevo: ['Évolution', 'une statistique à la fois, pour voir si tu progresses'],
 };
 function topHtml() {
@@ -123,9 +110,11 @@ function topHtml() {
     activities: `<button class="btn primary" data-do="newAct">${ic('plus', 16)}<span class="lbl">Activité</span></button>`,
     calendar: `<button class="btn primary" data-do="newAction">${ic('plus', 16)}<span class="lbl">Nouvelle action</span></button>`,
     today: `<button class="btn primary" data-do="newAction">${ic('plus', 16)}<span class="lbl">Nouvelle action</span> <kbd style="margin-left:4px;background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff">N</kbd></button>` }[ui.view] || '';
-  return `<header class="top"><button class="iconbtn appsw only-m" data-do="appSwitch" title="${ui.app === 'track' ? 'Retour à Cap' : 'Ouvrir Suivis'}">${ic('swap', 18)}</button><h1>${t}</h1><span class="sub">${s}</span><span class="sp"></span>${btn}</header>`;
+  const hideBtn = ui.app === 'cap' ? `<button class="iconbtn vm-${viewMode()}" data-do="viewMode" data-v="${VM_NEXT[viewMode()]}" title="${VM_LABEL[viewMode()]} — touche pour changer">${ic('users', 18)}</button>` : '';
+  return `<header class="top"><button class="iconbtn" data-do="hubHome" title="Retour aux applications">${ic('left', 18)}</button><button class="iconbtn appsw only-m" data-do="appSwitch" title="${ui.app === 'track' ? 'Retour à Cap' : 'Ouvrir Suivis'}">${ic('swap', 18)}</button>${hideBtn}<h1>${t}</h1><span class="sub">${s}</span><span class="sp"></span>${btn}</header>`;
 }
 function render() {
+  gearSync();
   if (hub.screen !== 'cap') return hubRender(); // connexion / accueil des applis (hub.js)
   const app = document.getElementById('app'); app.className = '';
   const sc = app.querySelector('.rows')?.scrollTop, sc2 = app.querySelector('.scroll')?.scrollTop, ds = app.querySelector('#detail')?.scrollTop;

@@ -19,7 +19,7 @@ const fileSync = (() => {
   };
   const hkey = () => 'handle.' + (hub.profile || 'brandon'); // un fichier de sauvegarde par profil
   const valid = d => d && ['actions', 'domains', 'routines', 'activities'].every(k => Array.isArray(d[k]));
-  const refresh = () => { if (typeof render !== 'function' || !document.getElementById('app').firstChild || hub.screen !== 'cap') return; if (ui.view === 'settings') render(); else refreshSide(); };
+  const refresh = () => { if (typeof gearRefresh === 'function') gearRefresh(); if (typeof render !== 'function' || !document.getElementById('app').firstChild || hub.screen !== 'cap') return; if (ui.view === 'settings') render(); else refreshSide(); };
   const readFile = async () => { const t = await (await handle.getFile()).text(); return t.trim() ? JSON.parse(t) : null; };
 
   async function write() {

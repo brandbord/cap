@@ -35,7 +35,7 @@ function dbxBadge() {
     offline: ['warn', 'Hors ligne · synchro en attente', 'dbxNow'], needs: ['warn', 'Reconnecter Dropbox', 'nav-settings'], error: ['bad', 'Synchro Dropbox en échec · réessayer', 'dbxNow'],
     none: ['ok', 'Dropbox · en attente', ''],
   }[state] || ['ok', 'Dropbox', ''];
-  return `<button class="sync ${M[0]}" ${M[2] === 'nav-settings' ? 'data-do="nav" data-view="settings"' : M[2] ? `data-do="${M[2]}"` : 'disabled'}><i></i>${M[1]}</button>`;
+  return `<button class="sync ${M[0]}" ${M[2] === 'nav-settings' ? 'data-do="gear"' : M[2] ? `data-do="${M[2]}"` : 'disabled'}><i></i>${M[1]}</button>`;
 }
 function sidebarHtml() {
   const b = todayBuckets(false), late = db.routines.filter(r => rStats(r).state === 'late').length;
@@ -44,7 +44,7 @@ function sidebarHtml() {
     ['today', 'sun', 'Aujourd\'hui', todayN ? `<span class="n hot">${todayN}</span>` : ''],
     ['actions', 'list', 'Actions', `<span class="n">${db.actions.filter(isActive).length}</span>`],
     ['routines', 'repeat', 'Routines', late ? `<span class="n hot">${late}</span>` : `<span class="n">${db.routines.length}</span>`],
-    ['activities', 'activity', 'Activités', `<span class="n">${db.activities.length}</span>`],
+    ['activities', 'journal', 'Journal', `<span class="n">${db.activities.length}</span>`],
     ['calendar', 'calendar', 'Calendrier', ''],
     ['review', 'review', 'Revue', reviewDue() ? '<span class="n dotn" title="Ta revue de la semaine est due"></span>' : ''],
   ];
@@ -52,10 +52,10 @@ function sidebarHtml() {
   const trk = ui.app === 'track', N = trk ? NTRK : NCAP;
   return `<aside class="side">
     <div class="brand"><button class="brandbtn" data-do="appSwitch" title="${trk ? 'Retour à Cap' : 'Ouvrir Suivis'}"><b>${trk ? 'Suivis' : APP_NAME}</b><span>${trk ? 'ce que je fais, vraiment' : 'ma vie, en clair'}</span>${ic('swap', 14)}</button><button class="iconbtn theme" data-do="themeToggle" title="Thème clair / sombre">${ic(isDark() ? 'sun' : 'moon', 16)}</button></div>
-    ${N.map(([v, i, l, n]) => `<button class="nav ${ui.view === v ? 'on' : ''} ${v === 'activities' || v === 'review' ? 'm-hide' : ''}" data-do="nav" data-view="${v}">${ic(i, 18)}<span class="nl">${l}</span>${n}</button>`).join('')}
+    ${N.map(([v, i, l, n]) => `<button class="nav ${ui.view === v ? 'on' : ''} ${['activities', 'review', 'tjournal', 'tstats'].includes(v) ? 'm-hide' : ''}" data-do="nav" data-view="${v}">${ic(i, 18)}<span class="nl">${l}</span>${n}</button>`).join('')}
     <div class="grow"></div>
     ${ui.view === 'today' ? '<div class="keys"><b>Clavier</b><span><kbd>↑</kbd><kbd>↓</kbd> naviguer</span><span><kbd>1</kbd>–<kbd>4</kbd> criticité</span><span><kbd>D</kbd> demain · <kbd>S</kbd> +1 sem.</span><span><kbd>M</kbd> +1 mois · <kbd>F</kbd> fait</span><span><kbd>P</kbd> passer une routine</span></div>' : ''}
-    <button class="nav m-hide" data-do="hideShared" data-v="${hideShared() ? 0 : 1}" title="Masquer / afficher les actions et routines communes">${ic('users', 18)}<span class="nl">Commun : ${hideShared() ? 'masqué' : 'visible'}</span></button>
+    ${!trk ? `<button class="nav m-hide vm-${viewMode()}" data-do="viewMode" data-v="${VM_NEXT[viewMode()]}" title="Clique pour changer (tout / perso seulement / commun seulement)">${ic('users', 18)}<span class="nl">${VM_LABEL[viewMode()]}</span></button>` : ''}
     <button class="nav m-hide" data-do="hubHome" title="Retour à l'accueil des applications">${ic('grid', 18)}<span class="nl">Applications</span></button>
     ${dbxBadge()}${dbxSync.connected() && fileSync.st.state !== 'ok' ? '' : syncBadge()}
     <button class="nav only-m ${['activities', 'review', 'settings'].includes(ui.view) ? 'on' : ''}" data-do="moreMenu">${ic('more', 18)}<span class="nl">Plus</span></button>

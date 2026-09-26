@@ -85,7 +85,15 @@ const ic = (n, s = 16) => `<svg class="ic" width="${s}" height="${s}" viewBox="0
    `db` = ce que voit le profil : ses données perso + les éléments communs, assemblés en mémoire (sync.js : stores).
    Les vues lisent et modifient `db` comme avant ; save() range chaque élément dans le bon fichier. */
 let db;
-function load() { loadStores(); }
+const ACTION_TTL = 14; // jours : une action terminée ou abandonnée s'efface toute seule après ça
+/* Ménage silencieux au chargement : les actions terminées/abandonnées depuis plus de 14 jours disparaissent.
+   Les anciennes actions abandonnées (avant cette version, sans date) ne sont jamais concernées : pas de casse. */
+function expireOldActions() {
+  const cutoff = D.add(D.today(), -ACTION_TTL), before = db.actions.length;
+  db.actions = db.actions.filter(a => !((a.status === 'done' || a.status === 'dropped') && a.doneAt && a.doneAt < cutoff));
+  return db.actions.length !== before;
+}
+function load() { loadStores(); if (expireOldActions()) save(); }
 function save() {
   db.meta.savedAt = Date.now();
   commit(true);

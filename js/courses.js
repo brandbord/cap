@@ -145,12 +145,14 @@ function cListHtml() {
     ${cCatsHtml(it.id, it.cat, sugOf(it))}
     <button type="button" class="iconbtn cdel" data-do="cDel" data-id="${it.id}" title="Retirer">${ic('x', 15)}</button></li>`).join('');
 }
+/* Retire les cochés ; s'il n'y a rien de coché, propose de vider toute la liste (même bouton, comportement qui s'adapte) */
+const cClearBtnHtml = () => `<button class="btn" data-do="cClear" id="cclear" title="${cDone() ? 'Retire de la liste les articles cochés' : 'Rien n\'est coché : propose de vider toute la liste'}"${courses.data.items.length ? '' : ' disabled'}>${ic('trash', 15)}<span class="lbl">${cDone() ? 'Retirer les cochés' : 'Vider la liste'}</span></button>`;
 function coursesHtml() {
   return `<div class="hubwrap cw"><div class="cwrap">
     <header class="chead"><button class="iconbtn" data-do="hubHome" title="Retour aux applications">${ic('left', 20)}</button><h1>Courses</h1><span class="sub" id="csub">${cSub()}</span><span class="sp"></span>
       <button class="iconbtn" data-do="cCards" title="Cartes de fidélité du dossier Courses">${ic('cardId', 19)}</button>
       <button class="btn" data-do="cSort" title="Range la liste dans l'ordre du magasin, d'après les logos (les articles sans logo vont à la fin)">${ic('list', 15)}<span class="lbl">Ranger par rayon</span></button>
-      <button class="btn" data-do="cClear" id="cclear" title="Retire de la liste les articles cochés"${cDone() ? '' : ' disabled'}>${ic('trash', 15)}<span class="lbl">Retirer les cochés</span></button></header>
+      ${cClearBtnHtml()}</header>
     <div class="ci cadd"><span class="cplus">${ic('plus', 18)}</span>
       <input class="ctitle" id="c-add" placeholder="Ajouter un article…" value="${esc(cui.text)}" autocomplete="off" enterkeyhint="done">
       ${cCatsHtml('draft', cui.draft, draftSug())}<button type="button" class="btn primary sm cgo" data-do="cAdd">Ajouter</button></div>
@@ -166,7 +168,7 @@ function coursesRefresh() {
   cui.pending = false;
   l.innerHTML = cListHtml();
   const s = document.getElementById('csub'); if (s) s.textContent = cSub();
-  const c = document.getElementById('cclear'); if (c) c.disabled = !cDone();
+  const c = document.getElementById('cclear'); if (c) c.outerHTML = cClearBtnHtml();
   const f = document.getElementById('cfoot'); if (f) f.innerHTML = dbxBadge();
   refreshDraftCats();
 }
@@ -198,7 +200,7 @@ function cAddNow() {
 }
 const coursesH = {
   cAdd: () => cAddNow(),
-  cCards: () => openCartesFolder('courses'),
+  cCards: () => openCartesFolder('courses', 'courses'),
   cToggle: el => { const it = cItem(el.dataset.id); if (!it) return; it.done = !it.done; if (it.done) it.doneAt = D.today(); else delete it.doneAt; coursesSave(); coursesRefresh(); },
   cCat: el => cSetCat(el.dataset.id, el.dataset.cat),
   cCatMenu: el => {
@@ -207,7 +209,12 @@ const coursesH = {
       '-', { label: draft ? 'Automatique' : 'Aucun rayon', icon: 'x', run: () => cNoCat(id) }]);
   },
   cDel: el => cmutate(() => { courses.data.items = courses.data.items.filter(x => x.id !== el.dataset.id); }, 'Article retiré'),
-  cClear: () => { const n = cDone(); if (n) cmutate(() => { courses.data.items = courses.data.items.filter(x => !x.done); }, `${n} article${n > 1 ? 's' : ''} retiré${n > 1 ? 's' : ''}`); },
+  cClear: () => {
+    const n = cDone();
+    if (n) return cmutate(() => { courses.data.items = courses.data.items.filter(x => !x.done); }, `${n} article${n > 1 ? 's' : ''} retiré${n > 1 ? 's' : ''}`);
+    const total = courses.data.items.length;
+    if (total && confirm(`Rien n'est coché. Vider toute la liste (${total} article${total > 1 ? 's' : ''}) ?`)) cmutate(() => { courses.data.items = []; }, 'Liste vidée');
+  },
   cSort: () => {
     if (!courses.data.items.length) return;
     cmutate(() => {

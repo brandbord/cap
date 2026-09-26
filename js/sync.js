@@ -20,10 +20,13 @@ const CORE_KEYS = ['domains', 'actions', 'routines', 'activities']; // requis po
    Les domaines sont recopiés dans les deux : la version la plus récente gagne, comme pour tout élément. */
 const CKEY = 'cap.v1.commun';
 const stores = { p: { data: null, snap: new Map() }, c: { data: null, snap: new Map() } };
-let hidden = { actions: [], routines: [], activities: [] }; // éléments communs masqués : gardés à part, jamais perdus
-const hideShared = () => { try { return localStorage.getItem('cap.hideShared.' + hub.profile) === '1'; } catch (e) { return false; } };
-function setHideShared(v) {
-  try { if (v) localStorage.setItem('cap.hideShared.' + hub.profile, '1'); else localStorage.removeItem('cap.hideShared.' + hub.profile); } catch (e) { /* ignore */ }
+let hidden = { actions: [], routines: [], activities: [] }; // éléments masqués (perso ou commun, selon le mode) : gardés à part, jamais perdus
+/* Trois façons de voir : 'all' (tout, par défaut), 'perso' (masque le commun), 'commun' (masque le perso). */
+const VM_NEXT = { all: 'perso', perso: 'commun', commun: 'all' }; // ce que le prochain clic donnera
+const VM_LABEL = { all: 'Commun : visible', perso: 'Commun : masqué', commun: 'Perso : masqué' };
+const viewMode = () => { try { return localStorage.getItem('cap.viewmode.' + hub.profile) || 'all'; } catch (e) { return 'all'; } };
+function setViewMode(v) {
+  try { if (v === 'all') localStorage.removeItem('cap.viewmode.' + hub.profile); else localStorage.setItem('cap.viewmode.' + hub.profile, v); } catch (e) { /* ignore */ }
   assemble(); ui.sel = { actions: null, routines: null, activities: null }; render();
 }
 
@@ -73,7 +76,7 @@ function splitDb() {
 }
 /* p + c → db. Un même élément présent dans les deux : le plus récent gagne. */
 function assemble() {
-  const P = stores.p.data, C = stores.c.data, hide = hideShared();
+  const P = stores.p.data, C = stores.c.data, mode = viewMode();
   const pick = k => {
     const m = new Map();
     for (const it of P[k] || []) m.set(it.id, [it, 'p']);
@@ -85,8 +88,8 @@ function assemble() {
   for (const k of ['actions', 'routines', 'activities']) {
     out[k] = [];
     for (const [it, sc] of pick(k)) {
-      if (sc === 'c') { if (k !== 'activities') it.shared = true; if (hide) { hidden[k].push(it); continue; } }
-      else if (k !== 'activities') delete it.shared;
+      if (sc === 'c') { if (k !== 'activities') it.shared = true; if (mode === 'perso') { hidden[k].push(it); continue; } }
+      else { if (k !== 'activities') delete it.shared; if (mode === 'commun') { hidden[k].push(it); continue; } }
       out[k].push(it);
     }
   }
@@ -167,7 +170,9 @@ const dbxSync = (() => {
   const rand = n => { const a = new Uint8Array(n); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/[+/=]/g, '').slice(0, n); };
   const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const ui_ = () => {
+    gearRefresh();
     if (hub.screen === 'courses') return coursesRefresh();
+    if (hub.screen === 'nd') return ndRefresh();
     if (hub.screen !== 'cap') return render();
     if (typeof refreshSide === 'function' && document.querySelector('.side')) { if (ui.view === 'settings') render(); else refreshSide(); }
   };
@@ -204,7 +209,7 @@ const dbxSync = (() => {
     try {
       const r = await tokenReq({ grant_type: 'authorization_code', code: p.get('code'), code_verifier: pk.verifier, redirect_uri: redirectUri() });
       put(LS.tok, { access: r.access_token, refresh: r.refresh_token, exp: Date.now() + r.expires_in * 1000 - 60000 }); put(LS.pk, null);
-      ui.view = 'settings'; hub.afterAuth = true; toast('Dropbox connecté ✓');
+      hub.afterAuth = true; toast('Dropbox connecté ✓');
     } catch (e) { toast('Échec de la connexion Dropbox (vérifie la clé et l\'adresse de redirection)'); }
     return true;
   }
