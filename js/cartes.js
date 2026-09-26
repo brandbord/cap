@@ -12,8 +12,8 @@
      qrcode.js embarquées localement dans js/vendor, donc ça marche aussi sans réseau), toujours en noir sur
      blanc quel que soit le thème — un code-barres sur fond sombre ne scanne pas.
    - La saisie caméra (photographier le code-barres pour remplir le numéro) utilise l'API BarcodeDetector du
-     navigateur, native à Chrome/Edge (donc au téléphone et au PC) : rien à télécharger. Si le navigateur ne
-     la propose pas, on retombe simplement sur la saisie manuelle.
+     navigateur, native à Chrome/Edge. Sur iPhone (Safari), qui ne l'a pas, on charge à la demande la
+     bibliothèque ZXing embarquée dans js/vendor. Si la caméra est refusée, on retombe sur la saisie manuelle.
    ===================================================================== */
 /* Enseignes françaises courantes, proposées pendant la saisie (liste native du navigateur <datalist>,
    aucun poids, aucune reconnaissance d'image nécessaire) — bien plus fiable qu'une détection automatique. */
@@ -225,8 +225,34 @@ function wireNewCardForm(m) {
 /* Scan caméra : remplace le contenu de la modale par le flux vidéo, ferme tout seul dès qu'un code est lu */
 let fidStream = null;
 function fidStopScan() { if (fidStream) { fidStream.getTracks().forEach(t => t.stop()); fidStream = null; } }
+/* Lecteur de codes : celui du navigateur (Chrome / Edge) s'il existe, sinon ZXing (js/vendor/zxing.min.js, chargé
+   seulement à ce moment-là) : c'est ce qui fait marcher le scan sur iPhone, où Safari n'a pas BarcodeDetector.
+   Les deux exposent la même chose : detect(canvas) → [{ rawValue, format }]. */
+let fidZxingLoad = null;
+const fidLoadZxing = () => fidZxingLoad || (fidZxingLoad = new Promise((res, rej) => {
+  const s = document.createElement('script'); s.src = 'js/vendor/zxing.min.js';
+  s.onload = res; s.onerror = () => { fidZxingLoad = null; rej(new Error('zxing')); }; document.head.appendChild(s);
+}));
+async function fidMakeDetector() {
+  if ('BarcodeDetector' in window) {
+    const supported = await BarcodeDetector.getSupportedFormats();
+    const det = new BarcodeDetector({ formats: FID_SCAN_FORMATS.filter(f => supported.includes(f)) });
+    return { detect: c => det.detect(c) };
+  }
+  await fidLoadZxing();
+  const Z = ZXing, hints = new Map(), reader = new Z.MultiFormatReader();
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, FID_SCAN_FORMATS.map(f => Z.BarcodeFormat[f.toUpperCase()]).filter(f => f != null));
+  hints.set(Z.DecodeHintType.TRY_HARDER, true);
+  reader.setHints(hints);
+  return { slow: true, detect: async c => {
+    try {
+      const r = reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c))));
+      return [{ rawValue: r.getText(), format: String(Z.BarcodeFormat[r.getBarcodeFormat()]).toLowerCase() }];
+    } catch (e) { return []; } // rien de lisible sur cette image : on réessaie sur la suivante
+  } };
+}
 async function fidScanStart(m) {
-  if (!('BarcodeDetector' in window)) return toast('Scan non pris en charge par ce navigateur : saisis le numéro à la main');
+  if (!navigator.mediaDevices?.getUserMedia) return toast('Caméra indisponible ici : saisis le numéro à la main');
   const body = m.querySelector('.modal'), folderSel = m.querySelector('#fid-folder')?.value || null;
   const restore = () => { body.innerHTML = fidNewCardFormHtml(folderSel); wireNewCardForm(m); };
   body.innerHTML = `<h3>Scanner une carte</h3><div class="fidscan"><video id="fid-video" playsinline muted></video><div class="fidscan-frame"></div></div>
@@ -235,13 +261,13 @@ async function fidScanStart(m) {
   try {
     fidStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     const video = body.querySelector('#fid-video'); video.srcObject = fidStream; await video.play();
-    const supported = await BarcodeDetector.getSupportedFormats();
-    const det = new BarcodeDetector({ formats: FID_SCAN_FORMATS.filter(f => supported.includes(f)) });
+    const det = await fidMakeDetector();
     const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
     (async function loop() {
       if (!fidStream) return; // annulé entre-temps
       try {
-        canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480;
+        const vw = video.videoWidth || 640, vh = video.videoHeight || 480, k = det.slow ? Math.min(1, 800 / vw) : 1; // ZXing : image réduite, sinon trop lent sur téléphone
+        canvas.width = Math.round(vw * k); canvas.height = Math.round(vh * k);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const res = await det.detect(canvas);
         if (res.length) {
@@ -252,7 +278,7 @@ async function fidScanStart(m) {
           return;
         }
       } catch (e) { /* image pas encore prête, on réessaie */ }
-      requestAnimationFrame(loop);
+      if (det.slow) setTimeout(loop, 120); else requestAnimationFrame(loop);
     })();
   } catch (e) {
     fidStopScan(); restore();
