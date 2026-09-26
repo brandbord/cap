@@ -11,7 +11,7 @@
    - Écrans : boot (rien) → login (choix du profil + code) → home (tuiles des applis) → <appli>.
      Changer de profil recharge la page : aucune donnée d'un profil ne reste en mémoire pour l'autre.
    ===================================================================== */
-const PROFILES = [{ id: 'brandon', name: 'Brandon', color: '#c4552f' }, { id: 'julya', name: 'Julya', color: '#5f7fa8' }];
+const PROFILES = [{ id: 'brandon', name: 'Brandon', color: '#c4552f', sex: 'm' }, { id: 'julya', name: 'Julya', color: '#5f7fa8', sex: 'f' }]; // sex : accords et tailles
 const APPS = [
   { id: 'weekend', name: 'Weekend', tag: 'corvées, trucs cool…', icon: 'clipboard', ready: true },
   { id: 'courses', name: 'Courses', tag: 'la liste de courses', icon: 'cart', ready: true },
@@ -91,7 +91,7 @@ const listesSpec = () => ({ // destinations de rêve, musique… communes (un se
   untouched: () => false, adopt: d => listesAdopt(d),
 });
 const courrierSpec = () => ({ // la boîte aux lettres : deux cases fixes (une par expéditeur) + l'historique des lettres lues
-  id: 'courrier', path: '/courrier/commun.json', get: () => courrier.data, valid: d => d && Array.isArray(d.letters), merge: (a, b) => mergeDb(a, b, ['letters', 'history']),
+  id: 'courrier', path: '/courrier/commun.json', get: () => courrier.data, valid: d => d && Array.isArray(d.letters), merge: mergeCourrier,
   untouched: () => false, adopt: d => courrierAdopt(d),
 });
 const weekendSpec = () => ({ // le programme du week-end : corvées / trucs cool, communs (un seul fichier, deux collections)

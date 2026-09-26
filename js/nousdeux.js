@@ -14,7 +14,7 @@ Object.assign(ICONS, {
 });
 
 const ND_KEY = 'nousdeux.v1.commun', ND_PKEY = () => 'nousdeux.v1.' + hub.profile;
-const ND_SEX = { brandon: 'm', julya: 'f' };
+const ND_SEX = Object.fromEntries(PROFILES.map(p => [p.id, p.sex]));
 const ND_TABS = [
   { id: 'plats', label: 'Plats' }, { id: 'gouts', label: 'Goûts' }, { id: 'cadeaux', label: 'Cadeaux' },
   { id: 'tailles', label: 'Tailles' }, { id: 'sante', label: 'Santé' }, { id: 'soins', label: 'Soins & parfums' },

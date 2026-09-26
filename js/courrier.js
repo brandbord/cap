@@ -17,8 +17,22 @@ const mailUi = { text: '', tab: 'box', favOnly: false };
 
 /* ---------- données ---------- */
 function ensureSlots(d) {
-  PROFILES.forEach(p => { if (!d.letters.find(x => x.id === p.id)) d.letters.push({ id: p.id, text: '', sentAt: null, readAt: null }); });
+  PROFILES.forEach(p => { if (!d.letters.find(x => x.id === p.id)) d.letters.push({ id: p.id, text: '', sentAt: null, readAt: null, u: 1 }); });
   d.history = d.history || [];
+}
+/* Fusion des deux cases : la lettre la plus récente (sentAt) l'emporte, et « lue » ne se défait jamais. On ne se fie pas
+   à la date de modification `u` : une case vide recréée sur un appareil neuf serait plus « récente » que la vraie lettre
+   d'un autre appareil et l'écraserait. L'historique, lui, se fusionne comme les autres listes. */
+function mergeCourrier(a, b) {
+  const out = mergeDb(a, b, ['letters', 'history']), slot = (d, id) => (d.letters || []).find(x => x.id === id);
+  out.letters = PROFILES.map(p => {
+    const x = slot(a, p.id), y = slot(b, p.id);
+    if (!x || !y) return x || y || { id: p.id, text: '', sentAt: null, readAt: null, u: 1 };
+    const [w, o] = (x.sentAt || 0) >= (y.sentAt || 0) ? [x, y] : [y, x];
+    const same = (x.sentAt || 0) === (y.sentAt || 0);
+    return { ...w, readAt: same ? (Math.max(x.readAt || 0, y.readAt || 0) || null) : w.readAt, u: Math.max(x.u || 0, y.u || 0) };
+  });
+  return out;
 }
 function courrierLoad() {
   let d = readLS(COURRIER_KEY);
@@ -107,7 +121,7 @@ function boxHtml() {
         <div class="mail-bar"><span class="mail-count">${mailUi.text.length} / ${COURRIER_MAX}</span><button class="btn primary sm" data-do="mailSend">Envoyer</button></div></div>`
     : unread
       ? `<div class="mail-wait">Tu as une lettre qui t'attend juste au-dessus : ouvre-la d'abord 💌</div>`
-      : `<div class="mail-wait">Ta dernière lettre est encore scellée dans sa boîte. Patience, elle finira par l'ouvrir 💌</div>`;
+      : `<div class="mail-wait">Ta dernière lettre est encore scellée dans sa boîte. Patience, ${otherProfile().sex === 'f' ? 'elle' : 'il'} finira par l'ouvrir 💌</div>`;
   return `<section class="msec"><h2>Pour toi</h2>${inbox}</section>
     <section class="msec"><h2>Écrire à ${esc(other.name)}</h2>${writeSection}</section>`;
 }
@@ -140,4 +154,4 @@ document.addEventListener('input', e => {
 function mailKey(e) {
   if (e.key === 'Escape') { if (document.activeElement?.id === 'mail-ta') document.activeElement.blur(); else hubHome(); }
 }
-setInterval(() => { if (hub.screen === 'courrier' && !document.hidden) dbxSync.syncNow(['courrier']); }, 25000);
+setInterval(() => { if (['courrier', 'home'].includes(hub.screen) && !document.hidden) dbxSync.syncNow(['courrier']); }, 25000); // à l'accueil aussi : c'est là que le drapeau se lève
