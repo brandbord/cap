@@ -815,3 +815,75 @@ svg.chart .cell:hover,svg.chart .cell:focus{stroke:var(--ink);stroke-width:1.5;o
 .gearadv{margin-bottom:12px}
 .gearadv summary{cursor:pointer;color:var(--ink3);font-size:13px;padding:6px 0;margin-bottom:8px}
 .gearadv summary:hover{color:var(--ink2)}
+
+/* ---- v1.27 : Entretien (réutilise .cw .chead .citems .ci .cempty .fchips .chip .mini .dbtn) ---- */
+.entrow{padding:0;align-items:stretch}
+.entopen{display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-align:left;padding:10px 4px 10px 14px}
+.entmeta{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.entmeta b{font:600 15px var(--sans);color:var(--ink)}
+.entmeta .muted{font-size:12.5px}
+.entdue{font-size:12.5px;white-space:nowrap;flex:none;padding-left:8px}
+.entdue.late{color:var(--late)}
+.entdue.soon{color:#a3760c}
+.entdue.ok{color:var(--ink3)}
+.entok{flex:none;margin:8px 10px 8px 0;border-radius:99px}
+.entq{width:100%;margin:0 0 6px}
+.entgrp{margin-top:14px}
+.entgrp h2{font:600 13px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:0 0 6px 2px}
+.entinfo{font-size:12.5px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entinfo.note{color:var(--ink3);font-style:italic}
+.entinfo.note svg{vertical-align:-1px;margin-right:4px}
+.tico{position:relative}
+.nbubble{position:absolute;top:-7px;right:-7px;min-width:22px;height:22px;padding:0 6px;border-radius:99px;background:var(--late);color:#fff;font:600 12px var(--sans);display:grid;place-items:center;box-shadow:0 0 0 2px var(--surface);font-variant-numeric:tabular-nums}
+.nbubble.inline{position:static;display:inline-grid;margin-left:6px;min-width:18px;height:18px;font-size:11px;box-shadow:none;vertical-align:1px}
+.freqpick{display:flex;flex-wrap:wrap;gap:6px}
+.freqbtn{padding:5px 12px;border-radius:99px;border:1px solid var(--line2);font-size:12.5px;color:var(--ink2);background:transparent}
+.freqbtn:hover{border-color:var(--accent);color:var(--accent)}
+.freqbtn.on{background:var(--ink);border-color:var(--ink);color:#fff}
+
+/* ---- v1.32 : Nos bonhommes (réutilise .cw .chead .msec .seg .btn .tbadge) ---- */
+.bnwrap .msec h2{margin-top:0}
+.bn-pals{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.bn-card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 12px 14px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bn-card.me{border-color:var(--accent-soft)}
+.bn-bubble{background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:5px 11px;font-size:12.5px;color:var(--ink2);text-align:center;line-height:1.3;max-width:100%;cursor:default}
+.bn-bubble.mail{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600;cursor:pointer;animation:bn-pop 1.4s ease-in-out infinite}
+.bn-stage{position:relative;display:grid;place-items:center;min-height:150px}
+.bn-svg{max-width:100%;height:auto;overflow:visible}
+.bn-name{font:600 15px var(--serif)}.bn-name small{font:400 12px var(--sans);color:var(--ink3)}
+.bn-gauge{display:flex;align-items:center;gap:8px;width:100%;font-size:12px;color:var(--ink3)}
+.bn-gauge span{width:44px}
+.bn-gauge b{flex:1;height:8px;border-radius:99px;background:var(--side);overflow:hidden}
+.bn-gauge i{display:block;height:100%;border-radius:99px;transition:width .5s}
+.bn-gauge i.g-fill{background:var(--warn)}.bn-gauge i.g-joy{background:var(--love)}
+.bn-tray{display:flex;flex-wrap:wrap;gap:8px}.bn-tray.care{margin-top:14px}
+.bn-food{width:46px;height:46px;border-radius:13px;background:var(--surface2);border:1px solid var(--line);font-size:24px;display:grid;place-items:center;transition:transform .12s}
+.bn-food:hover:not([disabled]){transform:translateY(-2px);border-color:var(--accent)}
+.bn-food[disabled],.bn-tray .btn[disabled]{opacity:.4;cursor:default}
+.bn-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:7px 0}
+.bn-row>span{width:84px;font-size:13px;color:var(--ink2);flex:none}
+.bn-sws{display:flex;gap:7px;flex-wrap:wrap}
+.bn-sw{width:28px;height:28px;border-radius:50%;border:2px solid var(--line2);box-shadow:inset 0 0 0 2px var(--surface)}
+.bn-sw.on{border-color:var(--ink)}
+.bn-log{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:13.5px;color:var(--ink2)}
+.bn-log em{margin-left:8px;color:var(--ink3);font-size:12px;font-style:normal}
+.bn-home{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:8px 16px;margin:-8px 0 20px;box-shadow:var(--shadow)}
+.bn-home.mail{border-color:var(--accent);background:var(--accent-soft)}
+.bn-home .bn-bubble{font-size:14px;text-align:left}
+.bn-home.mail .bn-bubble{background:var(--surface)}
+.bn-fx{position:absolute;left:50%;top:26%;margin-left:-16px;font-size:34px;pointer-events:none;animation:bn-float 1.6s ease-out forwards}
+.bn-bob{animation:bn-bob 2.4s ease-in-out infinite}
+.bn-arm{transform-box:view-box}
+.bn-arm.wave{animation:bn-wave .7s ease-in-out infinite}
+.bn-eyes{transform-box:fill-box;transform-origin:center;animation:bn-blink 4.5s infinite}
+.bn-chew{transform-box:fill-box;transform-origin:center;animation:bn-chew .3s ease-in-out infinite}
+@keyframes bn-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes bn-wave{0%,100%{transform:rotate(-138deg)}50%{transform:rotate(-172deg)}}
+@keyframes bn-blink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+@keyframes bn-chew{0%,100%{transform:scale(1)}50%{transform:scale(1.25,.6)}}
+@keyframes bn-float{0%{opacity:0;transform:translateY(10px) scale(.6)}20%{opacity:1}100%{opacity:0;transform:translateY(-80px) scale(1.25)}}
+@keyframes bn-pop{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@media (prefers-reduced-motion:reduce){.bn-bob,.bn-eyes,.bn-bubble.mail,.bn-chew{animation:none}.bn-arm.wave{animation:none;transform:rotate(-150deg)}}
+@media (max-width:420px){.bn-pals{gap:10px}.bn-card{padding:10px 8px 12px}.bn-row>span{width:100%}}
+.bn-heart{transform-box:fill-box;transform-origin:center;animation:bn-heartbeat .5s ease-in-out infinite}
+@keyframes bn-heartbeat{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}

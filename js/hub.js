@@ -19,6 +19,8 @@ const APPS = [
   { id: 'listes', name: 'Nos listes', tag: 'destinations, musique…', icon: 'star', ready: true },
   { id: 'mois', name: 'Mois', tag: 'fruits, légumes & jardin de saison', icon: 'calendar', ready: true },
   { id: 'nd', name: 'Nous Deux', tag: 'goûts, cadeaux, tailles…', icon: 'heart', ready: true },
+  { id: 'bonhommes', name: 'Nos bonhommes', tag: 'nourrir, câliner, personnaliser', icon: 'smile', ready: true },
+  { id: 'entretien', name: 'Entretien', tag: 'appareils, maison…', icon: 'wrench', ready: true },
   { id: 'cap', name: 'Cap', tag: 'ma vie, en clair', icon: 'target', ready: true },
 ];
 const HUB_KEY = 'cap.hub', SESSION_KEY = 'cap.session';
@@ -114,6 +116,14 @@ const nousdeuxPersoSpec = p => ({ // mes idées secrètes : ne transitent jamais
   id: 'nousdeuxPerso', path: `/nousdeux/${p}.json`, get: () => nd.p.data, valid: d => d && ND_COLLS_P.every(k => Array.isArray(d[k])), merge: (a, b) => mergeDb(a, b, ND_COLLS_P),
   untouched: () => false, adopt: d => ndAdoptP(d),
 });
+const bonhommesSpec = () => ({ // les bonhommes : un look par personne + les gestes (repas, câlins) échangés
+  id: 'bonhommes', path: '/bonhommes/commun.json', get: () => bon.data, valid: d => d && Array.isArray(d.looks) && Array.isArray(d.acts), merge: (a, b) => mergeDb(a, b, BON_COLLS),
+  untouched: () => false, adopt: d => bonAdopt(d),
+});
+const entretienSpec = () => ({ // entretien du matériel : catégories + matériel, communs (un seul fichier, deux collections)
+  id: 'entretien', path: '/entretien/commun.json', get: () => ent.data, valid: d => d && Array.isArray(d.cats) && Array.isArray(d.items), merge: (a, b) => mergeDb(a, b, ['cats', 'items']),
+  untouched: () => false, adopt: d => entAdopt(d),
+});
 // Mois (fruits/légumes de saison, jardin, lune) n'a pas de fichier : contenu de référence, pareil pour tous, sans synchro.
 
 /* ---------- messages d'accueil de Julya (un tirage à chaque ouverture) ----------
@@ -163,7 +173,7 @@ function hubEnter(p) {
   if (p === 'brandon' && !localStorage.getItem(KEY)) { // les données d'avant les profils deviennent celles de Brandon (l'ancienne clé reste, par sécurité)
     try { const old = localStorage.getItem('cap.v1'); if (old) localStorage.setItem(KEY, old); } catch (e) { /* ignore */ }
   }
-  load(); ensureTrackDefaults(); coursesLoad(); listesLoad(); courrierLoad(); weekendLoad(); fidLoad(); ndLoad();
+  load(); ensureTrackDefaults(); coursesLoad(); listesLoad(); courrierLoad(); weekendLoad(); fidLoad(); ndLoad(); entLoad(); bonLoad();
   hub.loveMsg = p === 'julya' ? pickLoveMessage() : null; // un seul tirage pour toute la session : ne change pas en changeant d'écran
   const h = location.hash;
   hub.screen = 'home';
@@ -172,7 +182,7 @@ function hubEnter(p) {
   const [v, sel] = h.slice(1).split('~')[0].split('+'); // lien direct : #routines ou #actions+sel
   if (TITLES[v]) { ui.view = v; hub.screen = 'cap'; if (TRACK_VIEWS.includes(v)) ui.app = 'track'; if (sel && ui.sel[v] === null && COLL[v]) ui.sel[v] = coll(v)[0]?.id ?? null; }
   const reopenGear = hub.afterAuth; hub.afterAuth = false;
-  dbxSync.setSpecs([hubSpec(), capSpec(p), communSpec(), coursesSpec(), listesSpec(), courrierSpec(), weekendSpec(), cartesSpec(), cartesPersoSpec(p), nousdeuxSpec(), nousdeuxPersoSpec(p)]);
+  dbxSync.setSpecs([hubSpec(), capSpec(p), communSpec(), coursesSpec(), listesSpec(), courrierSpec(), weekendSpec(), cartesSpec(), cartesPersoSpec(p), nousdeuxSpec(), nousdeuxPersoSpec(p), entretienSpec(), bonhommesSpec()]);
   render();
   if (reopenGear) setTimeout(gearOpen, 0); // retour de la connexion Dropbox : on rouvre les réglages
   fileSync.init();
@@ -213,6 +223,8 @@ function hubOpen(app) {
   if (['courses', 'listes', 'weekend'].includes(app)) dbxSync.syncNow([app]); // listes partagées : on les met à jour à l'ouverture
   if (app === 'cartes') dbxSync.syncNow(['cartes', 'cartesPerso']);
   if (app === 'nd') dbxSync.syncNow(['nousdeux', 'nousdeuxPerso']);
+  if (app === 'entretien') dbxSync.syncNow(['entretien']);
+  if (app === 'bonhommes') { bonUi.edit = false; dbxSync.syncNow(['bonhommes']); }
 }
 function hubHome() { fidUi.from = null; closeModal(); closeMenu(); hub.screen = 'home'; render(); }
 function hubSwitch() { lsSet(SESSION_KEY, null); location.href = location.pathname; }
@@ -225,6 +237,8 @@ function hubKeydown(e) {
   if (hub.screen === 'weekend') return weekendKey(e);
   if (hub.screen === 'cartes') return cartesKey(e);
   if (hub.screen === 'nd') return ndKey(e);
+  if (hub.screen === 'entretien') return entKey(e);
+  if (hub.screen === 'bonhommes') return bonKey(e);
   if (hub.screen !== 'login' || !hub.pick || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^\d$/.test(e.key)) hubDigit(e.key);
   else if (e.key === 'Backspace') hubDel();
@@ -266,18 +280,19 @@ function homeHtml() {
   const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const love = hub.profile === 'julya' && hub.loveMsg;
   const tile = a => `<button class="atile ${a.ready ? '' : 'later'}" ${a.ready ? `data-do="hubOpen" data-app="${a.id}"` : 'disabled'}>
-    <span class="tico">${ic(a.icon, 28)}</span><b>${esc(a.name)}</b><span class="ttag">${esc(a.tag)}</span>${a.ready ? { cap: capTileBadge, courses: coursesTileBadge, listes: listesTileBadge, mois: moisTileBadge, weekend: weekendTileBadge, cartes: fidTileBadge, nd: ndTileBadge }[a.id]?.() ?? '' : '<span class="tbadge">Bientôt</span>'}</button>`;
+    <span class="tico">${ic(a.icon, 28)}${a.id === 'entretien' ? entTileBubble() : ''}</span><b>${esc(a.name)}</b><span class="ttag">${esc(a.tag)}</span>${a.ready ? { cap: capTileBadge, courses: coursesTileBadge, listes: listesTileBadge, mois: moisTileBadge, weekend: weekendTileBadge, cartes: fidTileBadge, nd: ndTileBadge, entretien: entTileBadge, bonhommes: bonTileBadge }[a.id]?.() ?? '' : '<span class="tbadge">Bientôt</span>'}</button>`;
   return `<div class="hubwrap"><div class="hh">
     <header class="hubtop"><div><h1 class="${love ? `love${love.special ? ' special' : ''}` : ''}">${love ? esc(love.text) : `${hello}, ${esc(p.name)}`}</h1><span class="sub">${esc(date[0].toUpperCase() + date.slice(1))}</span></div><span class="sp"></span>
       ${mailboxBtn()}<button class="iconbtn" data-do="themeToggle" title="Thème clair / sombre">${ic(isDark() ? 'sun' : 'moon', 18)}</button>
       <button class="btn" data-do="hubSwitch" title="Changer de profil">${avatar(p, true)}<span class="lbl">Changer de profil</span></button></header>
+    ${bonHomeHtml()}
     <div class="atiles">${APPS.map(tile).join('')}</div>
     <footer class="hubfoot">${dbxBadge()}</footer></div></div>`;
 }
 function hubRender() {
   const app = document.getElementById('app');
   app.className = 'hubmode'; document.documentElement.dataset.app = 'cap';
-  app.innerHTML = { login: loginHtml, home: homeHtml, courses: coursesHtml, listes: listesHtml, mois: moisHtml, courrier: courrierHtml, weekend: weekendHtml, cartes: cartesHtml, nd: ndHtml }[hub.screen]?.() ?? '';
+  app.innerHTML = { login: loginHtml, home: homeHtml, courses: coursesHtml, listes: listesHtml, mois: moisHtml, courrier: courrierHtml, weekend: weekendHtml, cartes: cartesHtml, nd: ndHtml, entretien: entHtml, bonhommes: bonHtml }[hub.screen]?.() ?? '';
   if (hub.screen === 'cartes') cartesAfterRender();
 }
 function profileCardHtml() {

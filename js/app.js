@@ -22,6 +22,8 @@ const H = {
   ...cartesH,
   ...ndH,
   ...gearH,
+  ...entH,
+  ...bonH,
   share: el => { const o = byId(coll(el.dataset.k), el.dataset.id); if (o && !!o.shared !== (el.dataset.to === '1')) toggleShared(el.dataset.k, el.dataset.id); },
   viewMode: el => setViewMode(el.dataset.v),
   hubPick: el => hubPick(el.dataset.id), hubKey: el => (el.dataset.k === 'del' ? hubDel() : hubDigit(el.dataset.k)), hubBack: () => hubBack(),
