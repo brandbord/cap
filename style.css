@@ -605,6 +605,7 @@ svg.chart .cell:hover,svg.chart .cell:focus{stroke:var(--ink);stroke-width:1.5;o
 .lgdbx .sync{justify-content:center}
 .lg.pin .lgback{align-self:flex-start;margin-bottom:10px}
 .lgsub{color:var(--ink3);font-size:13px;margin:0;max-width:300px}
+.lgforgot{background:none;border:0;color:var(--ink3);font-size:13px;text-decoration:underline;margin-top:14px;padding:8px;cursor:pointer}
 .dots{display:flex;gap:14px;margin:22px 0 6px}
 .dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);transition:.12s}
 .dots i.on{background:var(--accent);border-color:var(--accent)}

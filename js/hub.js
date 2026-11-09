@@ -196,6 +196,7 @@ function hubBack() {
   if (hub.changing) { hub.changing = false; hub.pick = null; hub.screen = 'cap'; } else hub.pick = null;
   render();
 }
+function hubForgot() { hub.step = 'new'; hub.entry = hub.first = hub.err = ''; render(); } // code oublié : on en choisit un nouveau (c'est entre nous, pas de vérification)
 function hubDigit(d) {
   if (hub.busy || hub.entry.length >= 4 || hubWaiting() || !/^\d$/.test(d)) return;
   hub.err = ''; hub.entry += d; render();
@@ -267,7 +268,8 @@ function loginHtml() {
     ${avatar(p)}<h1>${title}</h1><p class="lgsub">${sub}</p>
     <div class="dots ${hub.err ? 'shake' : ''}">${[0, 1, 2, 3].map(i => `<i class="${i < hub.entry.length ? 'on' : ''}"></i>`).join('')}</div>
     <p class="lgerr" role="alert">${esc(hub.err)}</p>
-    <div class="pad ${wait ? 'off' : ''}">${keys.map(k => k === '' ? '<span></span>' : `<button type="button" data-do="hubKey" data-k="${k}" aria-label="${k === 'del' ? 'Effacer' : k}">${k === 'del' ? ic('backspace', 22) : k}</button>`).join('')}</div></div></div>`;
+    <div class="pad ${wait ? 'off' : ''}">${keys.map(k => k === '' ? '<span></span>' : `<button type="button" data-do="hubKey" data-k="${k}" aria-label="${k === 'del' ? 'Effacer' : k}">${k === 'del' ? ic('backspace', 22) : k}</button>`).join('')}</div>
+    ${hub.step === 'enter' ? '<button type="button" class="lgforgot" data-do="hubForgot">Code oublié ?</button>' : ''}</div></div>`;
 }
 function capTileBadge() {
   try {
